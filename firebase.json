@@ -4,6 +4,7 @@
     "rules": "firestore.rules"
   },
   "hosting": {
+    "site": "helper-8d935-63cd4",
     "public": "dist",
     "ignore": [
       "firebase.json",

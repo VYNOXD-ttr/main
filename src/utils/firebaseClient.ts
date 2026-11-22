@@ -80,7 +80,7 @@ const resolvedFirebaseConfig = {
   measurementId:
     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID ||
     firebaseConfig.measurementId ||
-    "G-PCSWZDVGFQ",
+    "G-LCD95QYS76",
 };
 
 export const firebaseApp: FirebaseApp =
