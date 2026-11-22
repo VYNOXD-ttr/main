@@ -1,12 +1,15 @@
 import {
   BookOpen,
+  Cloud,
   Code2,
   Cpu,
+  LogOut,
   MessageSquare,
   Palette,
   RotateCcw,
   Scale,
   ShieldCheck,
+  Smartphone,
 } from "lucide-react";
 import { ACCENT_OPTIONS, THEME_PRESETS } from "../data/presetsAndProviders";
 import type {
@@ -19,13 +22,13 @@ import type {
   ThemePresetId,
   TokenUsageStats,
 } from "../types/app";
+import { CREDIT_LIMIT_PER_USER, formatCompactCredits } from "../utils/creditQuota";
 import { ApiComparisonSection } from "./ApiComparisonSection";
 import { HelperBrandLogo } from "./ClaudeMark";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import { GuideSection } from "./GuideSection";
 import { PromptStudioSection } from "./PromptStudioSection";
-import { CREDIT_LIMIT_PER_USER, formatCompactCredits } from "../utils/creditQuota";
-import type { LocalAppAccountSession } from "../utils/localAccounts";
+import { PWAInstallButton } from "./PWAInstallBanner";
 
 interface SettingsSectionProps {
   activeSubTab: SettingsTabId;
@@ -38,15 +41,14 @@ interface SettingsSectionProps {
   onBackToChat: () => void;
   activeUserEmail: string | null;
   activeUserName: string | null;
-  localAccount: LocalAppAccountSession | null;
+  isCloudSynced: boolean;
   googleUserEmail: string | null;
   googleUserName: string | null;
   googleAuthLoading: boolean;
   googleAuthError: string | null;
   onOpenAuthModal: () => void;
-  onLogoutLocal: () => void;
+  onSignOutAll: () => void;
   onSignInGoogle: () => void;
-  onSignOutGoogle: () => void;
   tokenUsage: TokenUsageStats;
   onResetTokenUsage: () => void;
 }
@@ -105,15 +107,14 @@ export function SettingsSection({
   onBackToChat,
   activeUserEmail,
   activeUserName,
-  localAccount,
+  isCloudSynced,
   googleUserEmail,
   googleUserName,
   googleAuthLoading,
   googleAuthError,
   onOpenAuthModal,
-  onLogoutLocal,
+  onSignOutAll,
   onSignInGoogle,
-  onSignOutGoogle,
   tokenUsage,
   onResetTokenUsage,
 }: SettingsSectionProps) {
@@ -192,7 +193,7 @@ export function SettingsSection({
         </div>
 
         <div
-          className="inline-flex max-w-full flex-wrap items-center gap-1 p-1"
+          className="flex max-w-full items-center gap-1 overflow-x-auto p-1 sm:inline-flex sm:flex-wrap"
           style={{
             backgroundColor: "var(--bg-surface-muted)",
             borderRadius: "var(--radius-control)",
@@ -233,35 +234,38 @@ export function SettingsSection({
       {/* Active Sub-Tab Content */}
       {activeSubTab === "workspace" ? (
         <div className="space-y-6">
-          {/* Universal App Account Login Card (Works on Vercel & any domain) */}
+          {/* Firebase Cross-Device Cloud Account Card */}
           <section
-            className="flex flex-col justify-between gap-4 border p-6 sm:flex-row sm:items-center"
+            className="flex flex-col justify-between gap-4 border p-5 sm:flex-row sm:items-center sm:p-6"
             style={{
               backgroundColor: "var(--bg-surface)",
               borderColor: "var(--border-subtle)",
               borderRadius: "var(--radius-card)",
             }}
           >
-            <div className="space-y-1">
-              <h2 className="font-display text-lg font-bold">
-                Akun Pengguna HELPER AI.
-              </h2>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Cloud className="h-4 w-4 shrink-0" style={{ color: "var(--accent)" }} />
+                <h2 className="font-display text-lg font-bold">
+                  Akun &amp; Sinkronisasi Cloud
+                </h2>
+              </div>
               <p
-                className="max-w-2xl text-sm"
+                className="max-w-2xl text-sm leading-relaxed"
                 style={{ color: "var(--text-secondary)" }}
               >
-                {localAccount
-                  ? `Masuk sebagai ${localAccount.displayName} (${localAccount.email}). Dompet 100 Juta kredit tersimpan khusus untuk akun ini di browser.`
-                  : "Masuk atau daftar akun email langsung di web ini (berjalan di domain Vercel maupun lokal tanpa batasan domain OAuth)."}
+                {isCloudSynced && activeUserEmail
+                  ? `Masuk sebagai ${activeUserName || activeUserEmail} (${activeUserEmail}). Riwayat chat, tugas, catatan, dan dompet 100 Juta kredit tersimpan selamanya di Cloud Firestore dan otomatis ikut saat login di HP maupun laptop.`
+                  : "Anda sedang dalam Mode Tamu (tersimpan lokal di browser ini). Masuk dengan Email atau Google untuk menyimpan sesi selamanya lintas perangkat."}
               </p>
             </div>
 
-            {localAccount ? (
+            {isCloudSynced ? (
               <div className="flex flex-wrap items-center gap-2.5">
                 <button
                   type="button"
                   onClick={onOpenAuthModal}
-                  className="inline-flex min-h-[38px] items-center border px-3.5 py-2 text-xs font-semibold whitespace-nowrap hover:opacity-80"
+                  className="inline-flex min-h-[40px] items-center border px-3.5 py-2 text-xs font-semibold whitespace-nowrap hover:opacity-80"
                   style={{
                     borderColor: "var(--border-strong)",
                     borderRadius: "var(--radius-control)",
@@ -271,36 +275,85 @@ export function SettingsSection({
                 </button>
                 <button
                   type="button"
-                  onClick={onLogoutLocal}
-                  className="inline-flex min-h-[38px] items-center border px-3.5 py-2 text-xs font-semibold whitespace-nowrap hover:opacity-80"
+                  onClick={onSignOutAll}
+                  disabled={googleAuthLoading}
+                  className="inline-flex min-h-[40px] items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold whitespace-nowrap hover:opacity-80 disabled:opacity-50"
                   style={{
                     borderColor: "var(--border-strong)",
                     borderRadius: "var(--radius-control)",
                   }}
                 >
-                  Keluar Akun
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Keluar Akun</span>
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={onOpenAuthModal}
-                className="inline-flex min-h-[40px] shrink-0 items-center gap-2 px-4 py-2 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-                style={{
-                  background: "var(--accent-gradient)",
-                  backgroundColor: "var(--accent)",
-                  color: "var(--accent-contrast)",
-                  borderRadius: "var(--radius-control)",
-                }}
-              >
-                <span>Masuk / Daftar Akun</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={onOpenAuthModal}
+                  className="inline-flex min-h-[42px] shrink-0 items-center gap-2 px-4 py-2 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                  style={{
+                    background: "var(--accent-gradient)",
+                    backgroundColor: "var(--accent)",
+                    color: "var(--accent-contrast)",
+                    borderRadius: "var(--radius-control)",
+                  }}
+                >
+                  <span>Masuk / Daftar Akun</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onSignOutAll}
+                  className="inline-flex min-h-[42px] items-center border px-3.5 py-2 text-xs font-semibold whitespace-nowrap hover:opacity-80"
+                  style={{
+                    borderColor: "var(--border-strong)",
+                    borderRadius: "var(--radius-control)",
+                  }}
+                >
+                  Layar Masuk
+                </button>
+              </div>
             )}
+          </section>
+
+          {/* Mobile PWA Installability Card */}
+          <section
+            className="flex flex-col justify-between gap-4 border p-5 sm:flex-row sm:items-center sm:p-6"
+            style={{
+              backgroundColor: "var(--bg-surface)",
+              borderColor: "var(--border-subtle)",
+              borderRadius: "var(--radius-card)",
+            }}
+          >
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Smartphone
+                  className="h-4 w-4 shrink-0"
+                  style={{ color: "var(--accent)" }}
+                />
+                <h2 className="font-display text-lg font-bold">
+                  Tampilan Handphone &amp; Pasang Aplikasi
+                </h2>
+              </div>
+              <p
+                className="max-w-2xl text-sm leading-relaxed"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Buka <span className="font-semibold">HELPER AI.</span> dari browser
+                HP lalu pasang ke Layar Utama (Android Chrome / iPhone Safari)
+                untuk pengalaman layar penuh layaknya aplikasi mobile native.
+              </p>
+            </div>
+
+            <div className="shrink-0">
+              <PWAInstallButton />
+            </div>
           </section>
 
           {/* Google Workspace Integration Card */}
           <section
-            className="space-y-5 border p-6"
+            className="space-y-5 border p-5 sm:p-6"
             style={{
               backgroundColor: "var(--bg-surface)",
               borderColor: "var(--border-subtle)",
@@ -324,7 +377,7 @@ export function SettingsSection({
 
               {googleUserEmail ? (
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="text-right">
+                  <div className="text-left sm:text-right">
                     <div className="text-xs font-semibold">
                       {googleUserName || "Akun Google Terhubung"}
                     </div>
@@ -337,15 +390,15 @@ export function SettingsSection({
                   </div>
                   <button
                     type="button"
-                    onClick={onSignOutGoogle}
+                    onClick={onSignOutAll}
                     disabled={googleAuthLoading}
-                    className="inline-flex min-h-[38px] items-center border px-3.5 py-2 text-xs font-semibold whitespace-nowrap hover:opacity-80 disabled:opacity-50"
+                    className="inline-flex min-h-[40px] items-center border px-3.5 py-2 text-xs font-semibold whitespace-nowrap hover:opacity-80 disabled:opacity-50"
                     style={{
                       borderColor: "var(--border-strong)",
                       borderRadius: "var(--radius-control)",
                     }}
                   >
-                    Putuskan Koneksi
+                    Putuskan &amp; Keluar
                   </button>
                 </div>
               ) : (

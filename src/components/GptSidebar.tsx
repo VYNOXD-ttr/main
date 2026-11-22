@@ -5,6 +5,7 @@ import {
   FolderKanban,
   Layers,
   LogIn,
+  LogOut,
   MessageSquare,
   PanelLeftClose,
   Pin,
@@ -30,6 +31,7 @@ interface GptSidebarProps {
   isStreaming: boolean;
   activeUserEmail: string | null;
   activeUserName: string | null;
+  isCloudSynced: boolean;
   isGoogleConnected: boolean;
   tokenSaverMode: boolean;
   ultraSaverMode: boolean;
@@ -41,6 +43,7 @@ interface GptSidebarProps {
   onTogglePinSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
   onOpenAuthModal: () => void;
+  onSignOut: () => void;
 }
 
 export function GptSidebar({
@@ -53,6 +56,7 @@ export function GptSidebar({
   isStreaming,
   activeUserEmail,
   activeUserName,
+  isCloudSynced,
   isGoogleConnected,
   tokenSaverMode,
   ultraSaverMode,
@@ -64,6 +68,7 @@ export function GptSidebar({
   onTogglePinSession,
   onDeleteSession,
   onOpenAuthModal,
+  onSignOut,
 }: GptSidebarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,7 +107,7 @@ export function GptSidebar({
     return (
       <li
         key={session.id}
-        className="group flex items-center justify-between gap-1 px-2.5 py-1.5 text-[13px] transition-colors"
+        className="group flex min-h-[40px] items-center justify-between gap-1 px-2.5 py-1 text-[13px] transition-colors"
         style={{
           borderRadius: "var(--radius-control)",
           backgroundColor: isCurrent ? "var(--bg-surface)" : "transparent",
@@ -116,7 +121,7 @@ export function GptSidebar({
             onSelectTab("sandbox");
             closeOnMobile();
           }}
-          className="min-w-0 flex-1 truncate text-left font-normal"
+          className="min-h-[36px] min-w-0 flex-1 truncate text-left font-normal"
         >
           {session.title}
         </button>
@@ -124,14 +129,14 @@ export function GptSidebar({
         <div
           className={`flex shrink-0 items-center gap-0.5 transition-opacity ${
             isCurrent
-              ? "opacity-75"
-              : "opacity-0 group-hover:opacity-80"
+              ? "opacity-85"
+              : "opacity-80 lg:opacity-0 lg:group-hover:opacity-80"
           }`}
         >
           <button
             type="button"
             onClick={() => onTogglePinSession(session.id)}
-            className="p-1 hover:opacity-100"
+            className="inline-flex h-8 w-8 items-center justify-center hover:opacity-100"
             aria-label={session.pinned ? "Lepas sematan" : "Sematkan obrolan"}
             title={session.pinned ? "Lepas sematan" : "Sematkan ke Disematkan"}
           >
@@ -146,7 +151,7 @@ export function GptSidebar({
             <button
               type="button"
               onClick={() => onDeleteSession(session.id)}
-              className="p-1 hover:opacity-100"
+              className="inline-flex h-8 w-8 items-center justify-center hover:opacity-100"
               aria-label={`Hapus ${session.title}`}
               title="Hapus obrolan"
             >
@@ -161,7 +166,7 @@ export function GptSidebar({
   const displayName =
     activeUserName ||
     (activeUserEmail ? activeUserEmail.split("@")[0] : null) ||
-    "Masuk Akun";
+    "Mode Tamu";
   const avatarInitial = activeUserEmail
     ? displayName.charAt(0).toUpperCase()
     : "H";
@@ -176,13 +181,13 @@ export function GptSidebar({
       />
 
       <aside
-        className="fixed inset-y-0 left-0 z-50 flex w-[264px] shrink-0 flex-col border-r lg:static lg:z-auto"
+        className="fixed inset-y-0 left-0 z-50 flex w-[272px] shrink-0 flex-col border-r pb-safe lg:static lg:z-auto lg:w-[264px]"
         style={{
           backgroundColor: "var(--bg-surface-muted)",
           borderColor: "var(--border-subtle)",
           color: "var(--text-primary)",
         }}
-        aria-label="Sidebar navigasi bergaya Claude"
+        aria-label="Sidebar navigasi"
       >
         {/* Top Brand Lockup + Quick Controls Row */}
         <div className="flex h-14 items-center justify-between gap-2 px-3">
@@ -214,7 +219,7 @@ export function GptSidebar({
                   onSelectTab("sandbox");
                   closeOnMobile();
                 }}
-                className="inline-flex h-7 w-7 items-center justify-center transition-colors"
+                className="inline-flex h-8 w-8 items-center justify-center transition-colors sm:h-7 sm:w-7"
                 style={{
                   borderRadius: "calc(var(--radius-control) - 2px)",
                   backgroundColor:
@@ -235,7 +240,7 @@ export function GptSidebar({
                   onSelectTab("artifacts");
                   closeOnMobile();
                 }}
-                className="inline-flex h-7 w-7 items-center justify-center transition-colors"
+                className="inline-flex h-8 w-8 items-center justify-center transition-colors sm:h-7 sm:w-7"
                 style={{
                   borderRadius: "calc(var(--radius-control) - 2px)",
                   backgroundColor:
@@ -257,7 +262,7 @@ export function GptSidebar({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-8 w-8 items-center justify-center transition-colors hover:opacity-75"
+              className="inline-flex h-9 w-9 items-center justify-center transition-colors hover:opacity-75 sm:h-8 sm:w-8"
               style={{
                 borderRadius: "var(--radius-control)",
                 color: "var(--text-secondary)",
@@ -270,7 +275,7 @@ export function GptSidebar({
           </div>
         </div>
 
-        {/* Claude-Style Primary Navigation */}
+        {/* Primary Navigation */}
         <div className="space-y-0.5 px-2.5 pb-3">
           <button
             type="button"
@@ -280,7 +285,7 @@ export function GptSidebar({
               onSelectTab("sandbox");
               closeOnMobile();
             }}
-            className="flex min-h-[36px] w-full items-center gap-2.5 border px-3 py-1.5 text-left text-[13px] font-semibold transition-colors hover:opacity-85 disabled:opacity-50"
+            className="flex min-h-[42px] w-full items-center gap-2.5 border px-3 py-1.5 text-left text-[13px] font-semibold transition-colors hover:opacity-85 disabled:opacity-50 sm:min-h-[38px]"
             style={{
               backgroundColor: "var(--bg-surface)",
               borderColor: "var(--border-subtle)",
@@ -295,7 +300,7 @@ export function GptSidebar({
           <button
             type="button"
             onClick={() => setSearchOpen((v) => !v)}
-            className="flex min-h-[34px] w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium transition-colors hover:opacity-85"
+            className="flex min-h-[40px] w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium transition-colors hover:opacity-85 sm:min-h-[36px]"
             style={{
               borderRadius: "var(--radius-control)",
               backgroundColor: searchOpen ? "var(--bg-surface)" : "transparent",
@@ -309,7 +314,7 @@ export function GptSidebar({
           {searchOpen ? (
             <div className="px-1 py-1">
               <div
-                className="flex items-center gap-1.5 border px-2.5 py-1.5"
+                className="flex items-center gap-1.5 border px-2.5 py-2"
                 style={{
                   backgroundColor: "var(--bg-surface)",
                   borderColor: "var(--border-strong)",
@@ -344,7 +349,7 @@ export function GptSidebar({
                 onSelectTab("tasks");
                 closeOnMobile();
               }}
-              className="flex min-h-[34px] w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[13px] font-medium transition-colors"
+              className="flex min-h-[40px] w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[13px] font-medium transition-colors sm:min-h-[36px]"
               style={{
                 borderRadius: "var(--radius-control)",
                 backgroundColor:
@@ -383,7 +388,7 @@ export function GptSidebar({
                 onSelectTab("artifacts");
                 closeOnMobile();
               }}
-              className="flex min-h-[34px] w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[13px] font-medium transition-colors"
+              className="flex min-h-[40px] w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[13px] font-medium transition-colors sm:min-h-[36px]"
               style={{
                 borderRadius: "var(--radius-control)",
                 backgroundColor:
@@ -424,7 +429,7 @@ export function GptSidebar({
                 onSelectTab("settings");
                 closeOnMobile();
               }}
-              className="flex min-h-[34px] w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[13px] font-medium transition-colors"
+              className="flex min-h-[40px] w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[13px] font-medium transition-colors sm:min-h-[36px]"
               style={{
                 borderRadius: "var(--radius-control)",
                 backgroundColor:
@@ -516,7 +521,7 @@ export function GptSidebar({
 
         {/* Compact Profile / Account Row */}
         <div
-          className="border-t p-2.5"
+          className="flex items-center gap-1.5 border-t p-2.5"
           style={{ borderColor: "var(--border-subtle)" }}
         >
           <button
@@ -529,7 +534,7 @@ export function GptSidebar({
               }
               closeOnMobile();
             }}
-            className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left transition-colors hover:opacity-80"
+            className="flex min-h-[42px] min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1.5 text-left transition-colors hover:opacity-80"
             style={{ borderRadius: "var(--radius-control)" }}
             title={
               activeUserEmail
@@ -561,20 +566,38 @@ export function GptSidebar({
                   className="block truncate font-mono text-[11px] tabular-nums"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  {formatCompactCredits(creditsRemaining)} kredit
+                  {formatCompactCredits(creditsRemaining)}
                   {ultraSaverMode
-                    ? " · Ultra Hemat"
+                    ? " · Ultra"
                     : tokenSaverMode
                       ? " · Hemat"
                       : ""}
                   {isGoogleConnected
-                    ? " · Google"
-                    : activeUserEmail
-                      ? " · Akun"
+                    ? " · Workspace"
+                    : isCloudSynced
+                      ? " · Cloud"
                       : " · Tamu"}
                 </span>
               </span>
             </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              onSignOut();
+              closeOnMobile();
+            }}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center border hover:opacity-80"
+            style={{
+              borderColor: "var(--border-subtle)",
+              borderRadius: "var(--radius-control)",
+              color: "var(--text-secondary)",
+            }}
+            title={activeUserEmail ? "Keluar Akun" : "Kembali ke Layar Masuk"}
+            aria-label={activeUserEmail ? "Keluar Akun" : "Kembali ke Layar Masuk"}
+          >
+            <LogOut className="h-4 w-4" />
           </button>
         </div>
       </aside>

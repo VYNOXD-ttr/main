@@ -78,7 +78,7 @@ export function DailyTasksSection({
           >
             Produktivitas Harian Terhubung ke AI
           </p>
-          <h1 className="font-display text-3xl font-bold tracking-tight">
+          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             Tugas Hari Ini &amp; Catatan Cepat
           </h1>
           <p
@@ -94,7 +94,7 @@ export function DailyTasksSection({
         <button
           type="button"
           onClick={onPrioritizeWithAi}
-          className="inline-flex min-h-[40px] shrink-0 items-center gap-2 px-4 py-2 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+          className="inline-flex min-h-[42px] shrink-0 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
           style={{
             backgroundColor: "var(--accent)",
             color: "var(--accent-contrast)",
@@ -109,7 +109,7 @@ export function DailyTasksSection({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Daily Tasks Column */}
         <section
-          className="space-y-4 border p-6 lg:col-span-6"
+          className="space-y-4 border p-4 sm:p-6 lg:col-span-6"
           style={{
             backgroundColor: "var(--bg-surface)",
             borderColor: "var(--border-subtle)",
@@ -251,7 +251,7 @@ export function DailyTasksSection({
 
         {/* Quick Notes Column */}
         <section
-          className="space-y-4 border p-6 lg:col-span-6"
+          className="space-y-4 border p-4 sm:p-6 lg:col-span-6"
           style={{
             backgroundColor: "var(--bg-surface)",
             borderColor: "var(--border-subtle)",

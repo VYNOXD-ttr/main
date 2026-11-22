@@ -76,7 +76,7 @@ export function ArtifactsGallerySection({
                   key={opt.id}
                   type="button"
                   onClick={() => setFilter(opt.id)}
-                  className="min-h-[32px] px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors"
+                  className="min-h-[36px] px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors sm:min-h-[32px]"
                   style={{
                     borderRadius: "calc(var(--radius-control) - 2px)",
                     backgroundColor: active ? "var(--bg-surface)" : "transparent",

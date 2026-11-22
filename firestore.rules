@@ -1,0 +1,251 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid',
+          'email',
+          'displayName',
+          'creditLimit',
+          'creditsUsed',
+          'creditsSavedEstimated',
+          'allTimeTotalTokens',
+          'allTimeRequests',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'email',
+          'displayName',
+          'creditLimit',
+          'creditsUsed',
+          'creditsSavedEstimated',
+          'allTimeTotalTokens',
+          'allTimeRequests',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid is string
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.email is string
+        && data.email.size() >= 1
+        && data.email.size() <= 200
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 100
+        && data.creditLimit is int
+        && data.creditLimit == 100000000
+        && data.creditsUsed is int
+        && data.creditsUsed >= 0
+        && data.creditsUsed <= 100000000
+        && data.creditsSavedEstimated is int
+        && data.creditsSavedEstimated >= 0
+        && data.allTimeTotalTokens is int
+        && data.allTimeTotalTokens >= 0
+        && data.allTimeRequests is int
+        && data.allTimeRequests >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChatSession(data, userId, sessionId) {
+      return data.keys().hasAll(['uid', 'id', 'title', 'pinned', 'updatedAtMs', 'messages', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'id', 'title', 'pinned', 'updatedAtMs', 'messages', 'updatedAt'])
+        && data.uid is string
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.id is string
+        && data.id == sessionId
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 160
+        && data.pinned is bool
+        && data.updatedAtMs is int
+        && data.updatedAtMs >= 0
+        && data.messages is list
+        && data.messages.size() <= 40
+        && (data.messages.size() == 0 || data.messages[0] is map)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDailyTask(data, userId, taskId) {
+      return data.keys().hasAll(['uid', 'id', 'title', 'priority', 'done', 'createdAtMs', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'id', 'title', 'timeLabel', 'priority', 'done', 'createdAtMs', 'updatedAt'])
+        && data.uid is string
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.id is string
+        && data.id == taskId
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 240
+        && (!('timeLabel' in data) || (data.timeLabel is string && data.timeLabel.size() <= 64))
+        && data.priority is string
+        && data.priority in ['tinggi', 'normal', 'santai']
+        && data.done is bool
+        && data.createdAtMs is int
+        && data.createdAtMs >= 0
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidQuickNote(data, userId, noteId) {
+      return data.keys().hasAll(['uid', 'id', 'title', 'content', 'createdAtMs', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'id', 'title', 'content', 'createdAtMs', 'updatedAt'])
+        && data.uid is string
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.id is string
+        && data.id == noteId
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 160
+        && data.content is string
+        && data.content.size() <= 12000
+        && data.createdAtMs is int
+        && data.createdAtMs >= 0
+        && data.updatedAt is timestamp;
+    }
+
+    function userDocExistsOrAfter(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId))
+        || existsAfter(/databases/$(database)/documents/users/$(userId));
+    }
+
+    match /users/{userId} {
+      // PII isolation: only the owning user can read their own profile
+      allow get: if isOwner(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'email',
+          'displayName',
+          'creditsUsed',
+          'creditsSavedEstimated',
+          'allTimeTotalTokens',
+          'allTimeRequests',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+
+      match /sessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId) && existing().uid == request.auth.uid;
+
+        allow create: if isOwner(userId)
+          && isValidId(sessionId)
+          && isValidChatSession(incoming(), userId, sessionId)
+          && incoming().updatedAt == request.time
+          && userDocExistsOrAfter(userId);
+
+        allow update: if isOwner(userId)
+          && isValidId(sessionId)
+          && isValidChatSession(incoming(), userId, sessionId)
+          && incoming().uid == existing().uid
+          && incoming().id == existing().id
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title',
+            'pinned',
+            'updatedAtMs',
+            'messages',
+            'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+
+      match /tasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(taskId);
+        allow list: if isOwner(userId) && existing().uid == request.auth.uid;
+
+        allow create: if isOwner(userId)
+          && isValidId(taskId)
+          && isValidDailyTask(incoming(), userId, taskId)
+          && incoming().updatedAt == request.time
+          && userDocExistsOrAfter(userId);
+
+        allow update: if isOwner(userId)
+          && isValidId(taskId)
+          && isValidDailyTask(incoming(), userId, taskId)
+          && incoming().uid == existing().uid
+          && incoming().id == existing().id
+          && incoming().createdAtMs == existing().createdAtMs
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title',
+            'timeLabel',
+            'priority',
+            'done',
+            'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /notes/{noteId} {
+        allow get: if isOwner(userId) && isValidId(noteId);
+        allow list: if isOwner(userId) && existing().uid == request.auth.uid;
+
+        allow create: if isOwner(userId)
+          && isValidId(noteId)
+          && isValidQuickNote(incoming(), userId, noteId)
+          && incoming().updatedAt == request.time
+          && userDocExistsOrAfter(userId);
+
+        allow update: if isOwner(userId)
+          && isValidId(noteId)
+          && isValidQuickNote(incoming(), userId, noteId)
+          && incoming().uid == existing().uid
+          && incoming().id == existing().id
+          && incoming().createdAtMs == existing().createdAtMs
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title',
+            'content',
+            'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(noteId);
+      }
+    }
+  }
+}

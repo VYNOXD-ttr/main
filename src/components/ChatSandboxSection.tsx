@@ -70,6 +70,7 @@ interface ChatSandboxSectionProps {
   recentArtifacts: SessionArtifactEntry[];
   activeUserEmail: string | null;
   activeUserName: string | null;
+  isCloudSynced: boolean;
   googleUserEmail: string | null;
   googleUserName: string | null;
   googleAuthLoading: boolean;
@@ -107,6 +108,7 @@ export function ChatSandboxSection({
   recentArtifacts,
   activeUserEmail,
   activeUserName,
+  isCloudSynced,
   googleUserEmail,
   googleUserName,
   googleAuthLoading,
@@ -641,7 +643,7 @@ export function ChatSandboxSection({
           e.preventDefault();
           void sendMessage();
         }}
-        className="composer-creative-ring w-full border px-4 pt-3.5 pb-2.5 shadow-sm transition-shadow focus-within:shadow-md"
+        className="composer-creative-ring w-full border px-3 pt-3 pb-2 shadow-sm transition-shadow focus-within:shadow-md sm:px-4 sm:pt-3.5 sm:pb-2.5"
         style={{
           backgroundColor: "var(--bg-surface)",
           borderColor: "var(--border-strong)",
@@ -662,13 +664,13 @@ export function ChatSandboxSection({
           className="max-h-44 w-full resize-none bg-transparent py-0.5 text-[15px] leading-relaxed focus:outline-none"
         />
 
-        <div className="mt-2 flex items-center justify-between gap-2 pt-1">
+        <div className="mt-2 flex items-center justify-between gap-1.5 pt-1 sm:gap-2">
           {/* Left: Claude-style '+' Quick Menu + Search Web */}
           <div className="relative flex items-center gap-1.5" ref={plusMenuRef}>
             <button
               type="button"
               onClick={() => setPlusMenuOpen((v) => !v)}
-              className="inline-flex h-8 w-8 items-center justify-center border transition-colors hover:opacity-85"
+              className="inline-flex h-9 w-9 items-center justify-center border transition-colors hover:opacity-85 sm:h-8 sm:w-8"
               style={{
                 borderColor: plusMenuOpen
                   ? "var(--accent)"
@@ -687,7 +689,7 @@ export function ChatSandboxSection({
 
             {plusMenuOpen ? (
               <div
-                className="claude-enter absolute bottom-full left-0 z-40 mb-2 w-72 border p-2 shadow-lg"
+                className="claude-enter absolute bottom-full left-0 z-40 mb-2 w-72 max-w-[calc(100vw-2rem)] border p-2 shadow-lg"
                 style={{
                   backgroundColor: "var(--bg-surface)",
                   borderColor: "var(--border-strong)",
@@ -815,7 +817,7 @@ export function ChatSandboxSection({
                   agentWebSearchEnabled: !config.agentWebSearchEnabled,
                 })
               }
-              className="inline-flex min-h-[30px] items-center gap-1.5 border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-colors"
+              className="inline-flex min-h-[36px] items-center gap-1 border px-2 py-1 text-[11px] font-medium whitespace-nowrap transition-colors sm:min-h-[30px] sm:gap-1.5 sm:px-2.5"
               style={{
                 borderRadius: "var(--radius-control)",
                 borderColor: config.agentWebSearchEnabled
@@ -830,13 +832,14 @@ export function ChatSandboxSection({
               }}
               title="Aktifkan pencarian web Google Search"
             >
-              <Globe className="h-3.5 w-3.5" />
-              <span>Cari Web</span>
+              <Globe className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline">Cari Web</span>
+              <span className="sm:hidden">Web</span>
             </button>
           </div>
 
           {/* Right: Reasoning Depth + Terracotta Send */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <div
               className="flex items-center p-0.5"
               style={{
@@ -861,7 +864,7 @@ export function ChatSandboxSection({
                     onClick={() =>
                       onChangeConfig({ ...config, thinkingLevel: opt.id })
                     }
-                    className="min-h-[26px] px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors"
+                    className="min-h-[30px] px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors sm:min-h-[26px] sm:px-2"
                     style={{
                       borderRadius: "calc(var(--radius-control) - 2px)",
                       backgroundColor: selected
@@ -881,7 +884,7 @@ export function ChatSandboxSection({
             <button
               type="submit"
               disabled={!input.trim() || isStreaming}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center transition-opacity hover:opacity-90 disabled:opacity-35"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center transition-opacity hover:opacity-90 disabled:opacity-35 sm:h-8 sm:w-8"
               style={{
                 background: "var(--accent-gradient)",
                 backgroundColor: "var(--accent)",
@@ -897,25 +900,25 @@ export function ChatSandboxSection({
         </div>
       </form>
 
-      {/* Subtle Claude-style Context Strip Under Composer */}
+      {/* Subtle Context Strip Under Composer */}
       <div
         className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px]"
         style={{ color: "var(--text-muted)" }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={activeUserEmail ? onOpenGoogleSettings : onOpenAuthModal}
-            className="hover:underline"
+            className="truncate max-w-[200px] hover:underline sm:max-w-none"
           >
             {googleUserEmail
-              ? `Google: ${googleUserEmail}`
-              : activeUserEmail
-                ? `Akun: ${activeUserEmail}`
-                : "Masuk Akun / Tautkan Google"}
+              ? `Workspace: ${googleUserEmail}`
+              : isCloudSynced && activeUserEmail
+                ? `Cloud: ${activeUserEmail}`
+                : "Tamu · Masuk untuk Sinkron Cloud"}
           </button>
-          <span>·</span>
-          <span>
+          <span className="hidden sm:inline">·</span>
+          <span className="hidden sm:inline">
             {isUltraSaver
               ? "Mode Ultra Hemat (0,25× Kredit)"
               : config.tokenSaverMode
@@ -930,21 +933,21 @@ export function ChatSandboxSection({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Claude Top Bar with Top-Right Light/Dark Tab */}
+      {/* Top Bar with Top-Right Light/Dark Tab */}
       <header
-        className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4"
+        className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-2.5 sm:gap-3 sm:px-4"
         style={{
           backgroundColor: "var(--bg-canvas)",
           borderColor: "var(--border-subtle)",
         }}
       >
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           {!sidebarOpen ? (
             <>
               <button
                 type="button"
                 onClick={onOpenSidebar}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center border hover:opacity-80"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center border hover:opacity-80 sm:h-8 sm:w-8"
                 style={{
                   borderColor: "var(--border-subtle)",
                   borderRadius: "var(--radius-control)",
@@ -958,7 +961,7 @@ export function ChatSandboxSection({
                 type="button"
                 onClick={onCreateSession}
                 disabled={isStreaming}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center border hover:opacity-80 disabled:opacity-45"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center border hover:opacity-80 disabled:opacity-45 sm:h-8 sm:w-8"
                 style={{
                   borderColor: "var(--border-subtle)",
                   borderRadius: "var(--radius-control)",
@@ -978,7 +981,7 @@ export function ChatSandboxSection({
               aria-haspopup="listbox"
               aria-expanded={presetMenuOpen}
               aria-label="Pilih mode asisten"
-              className="inline-flex min-h-[34px] max-w-[240px] items-center gap-2 border px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors hover:opacity-90"
+              className="inline-flex min-h-[36px] max-w-[128px] items-center gap-1.5 border px-2 py-1 text-xs font-semibold whitespace-nowrap transition-colors hover:opacity-90 sm:min-h-[34px] sm:max-w-[220px] sm:gap-2 sm:px-3"
               style={{
                 backgroundColor: "var(--accent-soft)",
                 borderColor: "var(--accent)",
@@ -999,7 +1002,7 @@ export function ChatSandboxSection({
               <div
                 role="listbox"
                 aria-label="Daftar mode asisten"
-                className="claude-enter absolute left-0 top-full z-40 mt-1.5 w-72 border p-1.5 shadow-lg"
+                className="claude-enter absolute left-0 top-full z-40 mt-1.5 w-72 max-w-[calc(100vw-2rem)] border p-1.5 shadow-lg"
                 style={{
                   backgroundColor: "var(--bg-surface)",
                   borderColor: "var(--border-strong)",
@@ -1053,11 +1056,11 @@ export function ChatSandboxSection({
         </div>
 
         {/* Center-Right: Top Chat Header Credit Bar + Actions + Terang/Gelap */}
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={onOpenCreditSettings}
-            className="inline-flex min-h-[34px] items-center gap-2.5 border px-2.5 py-1 text-left transition-colors hover:opacity-85"
+            className="inline-flex min-h-[36px] items-center gap-2 border px-2 py-1 text-left transition-colors hover:opacity-85 sm:min-h-[34px] sm:gap-2.5 sm:px-2.5"
             style={{
               backgroundColor: "var(--bg-surface)",
               borderColor:
@@ -1146,7 +1149,7 @@ export function ChatSandboxSection({
                 }
                 setArtifactOpen((v) => !v);
               }}
-              className="inline-flex min-h-[34px] items-center gap-1.5 border px-2.5 py-1 text-xs font-semibold whitespace-nowrap transition-colors"
+              className="inline-flex min-h-[36px] items-center gap-1.5 border px-2 py-1 text-xs font-semibold whitespace-nowrap transition-colors sm:min-h-[34px] sm:px-2.5"
               style={{
                 borderColor: artifactOpen
                   ? "var(--accent)"
@@ -1157,13 +1160,17 @@ export function ChatSandboxSection({
                 color: artifactOpen ? "var(--accent)" : "var(--text-primary)",
                 borderRadius: "var(--radius-control)",
               }}
+              aria-label={`Kanvas (${sessionArtifacts.length})`}
             >
               {artifactOpen ? (
                 <PanelRightClose className="h-3.5 w-3.5" />
               ) : (
                 <PanelRightOpen className="h-3.5 w-3.5" />
               )}
-              <span>Kanvas ({sessionArtifacts.length})</span>
+              <span className="hidden sm:inline">
+                Kanvas ({sessionArtifacts.length})
+              </span>
+              <span className="sm:hidden">{sessionArtifacts.length}</span>
             </button>
           ) : null}
 
@@ -1177,11 +1184,12 @@ export function ChatSandboxSection({
                 setErrorBanner(null);
               }}
               disabled={isStreaming}
-              className="inline-flex min-h-[34px] items-center gap-1.5 border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:opacity-80 disabled:opacity-45"
+              className="inline-flex min-h-[36px] items-center gap-1.5 border px-2 py-1 text-xs font-medium whitespace-nowrap hover:opacity-80 disabled:opacity-45 sm:min-h-[34px] sm:px-2.5"
               style={{
                 borderColor: "var(--border-subtle)",
                 borderRadius: "var(--radius-control)",
               }}
+              aria-label="Bersihkan percakapan ini"
               title="Bersihkan percakapan ini"
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -1193,19 +1201,19 @@ export function ChatSandboxSection({
         </div>
       </header>
 
-      {/* Main Split: Claude Home / Conversation + Optional Right Kanvas */}
+      {/* Main Split: Home / Conversation + Optional Right Kanvas */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col">
           {messages.length === 0 ? (
-            <div className="claude-hero-atmosphere flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-8">
-              <div className="claude-enter w-full max-w-2xl space-y-6">
+            <div className="claude-hero-atmosphere flex flex-1 flex-col items-center justify-start overflow-y-auto px-3.5 py-6 sm:justify-center sm:px-4 sm:py-8">
+              <div className="claude-enter w-full max-w-2xl space-y-5 sm:space-y-6">
                 {/* Prominent Brand Logo Hero Showcase + Editorial Greeting */}
                 <div className="flex flex-col items-center text-center">
-                  <div className="mb-3.5">
+                  <div className="mb-3">
                     <HelperBrandLogo size="xl" showWordmark layout="stacked" />
                   </div>
 
-                  <h1 className="headline-balance font-editorial text-3xl font-medium tracking-tight sm:text-4xl">
+                  <h1 className="headline-balance font-editorial text-2xl font-medium tracking-tight sm:text-4xl">
                     {greetingHeadline}
                   </h1>
                   <p
@@ -1224,7 +1232,7 @@ export function ChatSandboxSection({
 
                 {!googleUserEmail ? (
                   <div
-                    className="space-y-2.5 border px-4 py-3"
+                    className="space-y-2.5 border px-3.5 py-3 sm:px-4"
                     style={{
                       backgroundColor: "var(--bg-surface)",
                       borderColor: "var(--border-subtle)",
@@ -1236,12 +1244,12 @@ export function ChatSandboxSection({
                         className="text-xs leading-relaxed"
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        {activeUserEmail
-                          ? `Masuk sebagai ${activeUserEmail}. Tautkan Google Workspace bila ingin akses Calendar, Gmail, Tasks, dan Drive.`
-                          : "Masuk dengan akun email Anda untuk menyimpan dompet 100 Juta kredit, atau tautkan Google Workspace."}
+                        {isCloudSynced && activeUserEmail
+                          ? `Tersinkron cloud sebagai ${activeUserEmail}. Tautkan Google Workspace bila ingin akses Calendar, Gmail, Tasks, dan Drive.`
+                          : "Masuk dengan akun Anda untuk menyimpan riwayat chat & 100 Juta kredit di semua perangkat, atau tautkan Google Workspace."}
                       </p>
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        {!activeUserEmail ? (
+                        {!isCloudSynced ? (
                           <button
                             type="button"
                             onClick={onOpenAuthModal}
@@ -1637,16 +1645,16 @@ export function ChatSandboxSection({
                 </div>
               ) : null}
 
-              <div className="mx-auto w-full max-w-3xl px-4 pb-4 pt-1">
+              <div className="mx-auto w-full max-w-3xl px-3 pb-3 pt-1 sm:px-4 sm:pb-4">
                 {renderComposer(false)}
               </div>
             </>
           )}
         </div>
 
-        {/* Right Side-by-Side Kanvas Artifact */}
+        {/* Right Side-by-Side Kanvas on Desktop / Full-Screen Sheet on Mobile & Tablet */}
         {artifactOpen && sessionArtifacts.length > 0 ? (
-          <div className="w-full shrink-0 p-3 pl-0 lg:w-[45%] lg:min-w-[380px]">
+          <div className="fixed inset-0 z-50 bg-black/55 p-2 sm:p-4 lg:static lg:z-auto lg:w-[45%] lg:min-w-[380px] lg:shrink-0 lg:bg-transparent lg:p-3 lg:pl-0">
             <ArtifactPanel
               artifacts={sessionArtifacts}
               activeArtifactId={activeArtifactId}

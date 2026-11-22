@@ -1,13 +1,11 @@
-import { getApp, getApps, initializeApp } from "firebase/app";
 import {
-  getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
   type User,
 } from "firebase/auth";
-import firebaseConfig from "../../firebase-applet-config.json";
 import type { PendingAgentAction } from "../types/app";
+import { firebaseAuth, signOutFirebaseAccount } from "./firebaseClient";
 
 export const GOOGLE_WORKSPACE_SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
@@ -17,24 +15,6 @@ export const GOOGLE_WORKSPACE_SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
   "https://www.googleapis.com/auth/drive.file",
 ] as const;
-
-const resolvedFirebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
-  authDomain:
-    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
-  projectId:
-    import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
-  storageBucket:
-    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
-  messagingSenderId:
-    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ||
-    firebaseConfig.messagingSenderId,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
-};
-
-const app =
-  getApps().length > 0 ? getApp() : initializeApp(resolvedFirebaseConfig);
-const auth = getAuth(app);
 
 const provider = new GoogleAuthProvider();
 for (const scope of GOOGLE_WORKSPACE_SCOPES) {
@@ -58,7 +38,7 @@ export function formatGoogleAuthError(err: unknown): string {
     code === "auth/unauthorized-domain" ||
     rawMessage.includes("auth/unauthorized-domain")
   ) {
-    return `Login Google diblokir karena domain "${host}" belum terdaftar di Firebase Authorized Domains. Untuk mengaktifkannya di Vercel: tambahkan "${host}" di Firebase Console → Authentication → Settings → Authorized domains (atau isi env VITE_FIREBASE_* milik Anda). Anda tetap bisa langsung login menggunakan tombol "Masuk Akun".`;
+    return `Login Google diblokir karena domain "${host}" belum terdaftar di Firebase Authorized Domains. Untuk mengaktifkannya di Vercel: tambahkan "${host}" di Firebase Console → Authentication → Settings → Authorized domains. Anda juga dapat langsung masuk menggunakan Email & Kata Sandi.`;
   }
   if (code === "auth/popup-blocked" || rawMessage.includes("auth/popup-blocked")) {
     return "Popup login Google diblokir oleh browser Anda. Izinkan popup untuk situs ini lalu coba lagi.";
@@ -70,39 +50,31 @@ export function formatGoogleAuthError(err: unknown): string {
     return "Jendela login Google ditutup sebelum proses selesai.";
   }
   if (code === "auth/operation-not-supported-in-environment") {
-    return "Lingkungan browser saat ini memblokir popup Google Auth. Buka situs langsung di tab browser biasa atau gunakan Masuk Akun.";
+    return "Lingkungan browser saat ini memblokir popup Google Auth. Buka situs langsung di tab browser biasa atau masuk menggunakan Email & Kata Sandi.";
   }
   return rawMessage || "Gagal menautkan akun Google Workspace.";
 }
 
 export function initWorkspaceAuth(
-  onAuthSuccess?: (user: User, token: string) => void,
-  onAuthCleared?: () => void,
+  onAuthChanged?: (user: User | null, token: string | null) => void,
 ) {
-  return onAuthStateChanged(auth, (user: User | null) => {
-    if (user && cachedAccessToken) {
-      onAuthSuccess?.(user, cachedAccessToken);
-    } else if (!isSigningIn) {
+  return onAuthStateChanged(firebaseAuth, (user: User | null) => {
+    if (!user && !isSigningIn) {
       cachedAccessToken = null;
-      onAuthCleared?.();
     }
+    onAuthChanged?.(user, user ? cachedAccessToken : null);
   });
 }
 
 export async function signInGoogleWorkspace(): Promise<{
   user: User;
-  accessToken: string;
+  accessToken: string | null;
 }> {
   isSigningIn = true;
   try {
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(firebaseAuth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error(
-        "Token akses Google Workspace tidak diterima. Silakan coba masuk ulang.",
-      );
-    }
-    cachedAccessToken = credential.accessToken;
+    cachedAccessToken = credential?.accessToken || null;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (err) {
     throw new Error(formatGoogleAuthError(err));
@@ -113,7 +85,7 @@ export async function signInGoogleWorkspace(): Promise<{
 
 export async function signOutGoogleWorkspace(): Promise<void> {
   cachedAccessToken = null;
-  await auth.signOut();
+  await signOutFirebaseAccount();
 }
 
 export function getWorkspaceAccessToken(): string | null {
@@ -161,7 +133,7 @@ export async function executeConfirmedWorkspaceAction(
   const token = cachedAccessToken;
   if (!token) {
     throw new Error(
-      "Sesi Google Workspace Anda sudah kedaluwarsa. Silakan klik Sign in with Google lagi.",
+      "Sesi Google Workspace Anda sudah kedaluwarsa. Silakan klik Masuk dengan Google lagi untuk memberikan izin sesi aktif.",
     );
   }
 
@@ -287,7 +259,7 @@ export async function executeConfirmedWorkspaceAction(
   if (action.type === "create_drive_doc") {
     const boundary = `helperid_${Date.now()}`;
     const metadata = JSON.stringify({
-      name: p.title || "Dokumen Kerja Helper.Id",
+      name: p.title || "Dokumen Kerja HELPER AI.",
       mimeType: "application/vnd.google-apps.document",
     });
     const multipartBody = [

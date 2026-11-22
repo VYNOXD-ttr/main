@@ -1,13 +1,23 @@
-import { PanelLeftOpen, SquarePen } from "lucide-react";
+import type { User } from "firebase/auth";
+import {
+  FolderKanban,
+  Layers,
+  MessageSquare,
+  PanelLeftOpen,
+  SlidersHorizontal,
+  SquarePen,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AccountAuthModal } from "./components/AccountAuthModal";
 import type { SessionArtifactEntry } from "./components/ArtifactPreviewCard";
 import { ArtifactsGallerySection } from "./components/ArtifactsGallerySection";
+import { AuthWelcomeScreen } from "./components/AuthWelcomeScreen";
 import { ChatSandboxSection } from "./components/ChatSandboxSection";
-import { ThemeToggleTabs } from "./components/ClaudeMark";
+import { HelperBrandLogo, ThemeToggleTabs } from "./components/ClaudeMark";
 import { DailyTasksSection } from "./components/DailyTasksSection";
 import { GptSidebar } from "./components/GptSidebar";
 import { extractArtifactsFromText } from "./components/MarkdownMessage";
+import { OfflineStatusBanner } from "./components/PWAInstallBanner";
 import { SettingsSection } from "./components/SettingsSection";
 import { ASSISTANT_PRESETS, THEME_PRESETS } from "./data/presetsAndProviders";
 import type {
@@ -31,18 +41,25 @@ import {
   saveCreditStatsForUser,
 } from "./utils/creditQuota";
 import {
+  deleteNoteFromFirestore,
+  deleteSessionFromFirestore,
+  deleteTaskFromFirestore,
+  ensureUserWorkspaceProfile,
+  loginWithEmailPassword,
+  registerWithEmailPassword,
+  subscribeUserWorkspace,
+  syncCreditStatsToFirestore,
+  testFirestoreConnection,
+  upsertNoteToFirestore,
+  upsertSessionToFirestore,
+  upsertTaskToFirestore,
+} from "./utils/firebaseClient";
+import {
   formatGoogleAuthError,
   initWorkspaceAuth,
   signInGoogleWorkspace,
   signOutGoogleWorkspace,
 } from "./utils/googleWorkspace";
-import {
-  loadActiveLocalSession,
-  loginLocalAccount,
-  logoutLocalAccount,
-  registerLocalAccount,
-  type LocalAppAccountSession,
-} from "./utils/localAccounts";
 
 const STORAGE_KEYS = {
   theme: "helperid_theme_v3",
@@ -50,6 +67,7 @@ const STORAGE_KEYS = {
   sessions: "helperid_sessions_v1",
   tasks: "helperid_daily_tasks_v1",
   notes: "helperid_quick_notes_v1",
+  guestSessionFlag: "helperid_guest_mode_v1",
 };
 
 const DEFAULT_THEME: ThemePreferences = {
@@ -95,7 +113,7 @@ function loadAssistantConfig(): AssistantConfig {
 
 function createEmptySession(): ChatSession {
   return {
-    id: `s-${Date.now()}`,
+    id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     title: "Obrolan Baru",
     messages: [],
     pinned: false,
@@ -124,12 +142,31 @@ function readArrayStorage<T>(key: string, fallback: T[]): T[] {
   }
 }
 
+function readGuestModeFlag(): boolean {
+  try {
+    return window.sessionStorage.getItem(STORAGE_KEYS.guestSessionFlag) === "1";
+  } catch {
+    return false;
+  }
+}
+
 const TAB_LABELS: Record<NavTab, string> = {
   sandbox: "Asisten Chat",
   tasks: "Tugas & Proyek",
   artifacts: "Artefak",
   settings: "Pengaturan",
 };
+
+const MOBILE_NAV_ITEMS: Array<{
+  id: NavTab;
+  label: string;
+  icon: typeof MessageSquare;
+}> = [
+  { id: "sandbox", label: "Chat", icon: MessageSquare },
+  { id: "tasks", label: "Tugas", icon: FolderKanban },
+  { id: "artifacts", label: "Artefak", icon: Layers },
+  { id: "settings", label: "Pengaturan", icon: SlidersHorizontal },
+];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>("sandbox");
@@ -143,19 +180,29 @@ export default function App() {
     null,
   );
 
-  const [googleUserEmail, setGoogleUserEmail] = useState<string | null>(null);
-  const [googleUserName, setGoogleUserName] = useState<string | null>(null);
+  // Firebase Auth + Guest Gate state
+  const [authResolved, setAuthResolved] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [workspaceOAuthToken, setWorkspaceOAuthToken] = useState<string | null>(
+    null,
+  );
+  const [guestModeAccepted, setGuestModeAccepted] = useState<boolean>(() =>
+    readGuestModeFlag(),
+  );
   const [googleAuthLoading, setGoogleAuthLoading] = useState(false);
   const [googleAuthError, setGoogleAuthError] = useState<string | null>(null);
-  const [localAccount, setLocalAccount] =
-    useState<LocalAppAccountSession | null>(() => loadActiveLocalSession());
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">(
     "login",
   );
 
-  const activeUserEmail = googleUserEmail || localAccount?.email || null;
-  const activeUserName = googleUserName || localAccount?.displayName || null;
+  const activeUserEmail = firebaseUser?.email || null;
+  const activeUserName =
+    firebaseUser?.displayName ||
+    (firebaseUser?.email ? firebaseUser.email.split("@")[0] : null);
+  const googleWorkspaceEmail = workspaceOAuthToken
+    ? firebaseUser?.email || null
+    : null;
 
   const [themePreferences, setThemePreferences] = useState<ThemePreferences>(() =>
     readStorage(STORAGE_KEYS.theme, DEFAULT_THEME),
@@ -166,7 +213,7 @@ export default function App() {
   );
 
   const [tokenUsage, setTokenUsage] = useState<TokenUsageStats>(() =>
-    loadCreditStatsForUser(loadActiveLocalSession()?.email || null),
+    loadCreditStatsForUser(null),
   );
 
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
@@ -185,6 +232,16 @@ export default function App() {
   const [quickNotes, setQuickNotes] = useState<QuickNote[]>(() =>
     readArrayStorage<QuickNote>(STORAGE_KEYS.notes, []),
   );
+
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const tasksRef = useRef(dailyTasks);
+  tasksRef.current = dailyTasks;
+  const notesRef = useRef(quickNotes);
+  notesRef.current = quickNotes;
+  const tokenUsageRef = useRef(tokenUsage);
+  tokenUsageRef.current = tokenUsage;
+  const sessionSyncTimersRef = useRef<Record<string, number>>({});
 
   const isCurrentDark =
     THEME_PRESETS.find((t) => t.id === themePreferences.preset)?.isDark ?? false;
@@ -208,20 +265,86 @@ export default function App() {
     return collected.sort((a, b) => b.timestamp - a.timestamp);
   }, [sessions]);
 
+  // Verify Firestore connection once on startup
   useEffect(() => {
-    const unsubscribe = initWorkspaceAuth(
-      (user) => {
-        setGoogleUserEmail(user.email);
-        setGoogleUserName(user.displayName);
-      },
-      () => {
-        setGoogleUserEmail(null);
-        setGoogleUserName(null);
-      },
-    );
+    void testFirestoreConnection();
+  }, []);
+
+  // Listen for Firebase Auth state (persisted forever via browserLocalPersistence)
+  useEffect(() => {
+    const unsubscribe = initWorkspaceAuth((user, token) => {
+      setFirebaseUser(user);
+      setWorkspaceOAuthToken(token);
+      setAuthResolved(true);
+    });
     return () => unsubscribe();
   }, []);
 
+  // Subscribe to Cloud Firestore workspace when signed in
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    let cancelled = false;
+    let unsubWorkspace: (() => void) | null = null;
+    let seededInitialSession = false;
+
+    const startSync = async () => {
+      await ensureUserWorkspaceProfile(firebaseUser);
+      if (cancelled) return;
+
+      unsubWorkspace = subscribeUserWorkspace(firebaseUser.uid, {
+        onCreditProfile: (partial) => {
+          setTokenUsage((prev) => ({
+            ...prev,
+            creditLimit: partial.creditLimit || CREDIT_LIMIT_PER_USER,
+            creditsUsed: partial.creditsUsed ?? prev.creditsUsed,
+            creditsSavedEstimated:
+              partial.creditsSavedEstimated ?? prev.creditsSavedEstimated,
+            allTimeTotalTokens:
+              partial.allTimeTotalTokens ?? prev.allTimeTotalTokens,
+            allTimeRequests: partial.allTimeRequests ?? prev.allTimeRequests,
+          }));
+        },
+        onSessions: (cloudSessions) => {
+          if (cloudSessions.length === 0) {
+            if (!seededInitialSession) {
+              seededInitialSession = true;
+              const fresh = createEmptySession();
+              setSessions([fresh]);
+              setActiveSessionId(fresh.id);
+              void upsertSessionToFirestore(firebaseUser.uid, fresh);
+            }
+            return;
+          }
+          setSessions(cloudSessions);
+          setActiveSessionId((prevId) =>
+            cloudSessions.some((s) => s.id === prevId)
+              ? prevId
+              : cloudSessions[0].id,
+          );
+        },
+        onTasks: (cloudTasks) => {
+          setDailyTasks(cloudTasks);
+        },
+        onNotes: (cloudNotes) => {
+          setQuickNotes(cloudNotes);
+        },
+      });
+    };
+
+    void startSync();
+
+    return () => {
+      cancelled = true;
+      unsubWorkspace?.();
+      for (const timerId of Object.values(sessionSyncTimersRef.current)) {
+        window.clearTimeout(timerId);
+      }
+      sessionSyncTimersRef.current = {};
+    };
+  }, [firebaseUser?.uid]);
+
+  // Apply theme CSS attributes
   useEffect(() => {
     const root = document.documentElement;
     const presetMeta = THEME_PRESETS.find((t) => t.id === themePreferences.preset);
@@ -254,31 +377,14 @@ export default function App() {
     }
   }, [assistantConfig]);
 
-  const loadedCreditAccountRef = useRef<string>(
-    loadActiveLocalSession()?.email || "guest",
-  );
+  // Guest-mode localStorage persistence (only when NOT signed into Firebase Cloud)
+  useEffect(() => {
+    if (firebaseUser) return;
+    saveCreditStatsForUser(null, tokenUsage);
+  }, [firebaseUser, tokenUsage]);
 
   useEffect(() => {
-    const targetAccount = activeUserEmail || "guest";
-    if (loadedCreditAccountRef.current !== targetAccount) {
-      loadedCreditAccountRef.current = targetAccount;
-      setTokenUsage((prev) => {
-        const stored = loadCreditStatsForUser(activeUserEmail);
-        return {
-          ...stored,
-          sessionPromptTokens: prev.sessionPromptTokens,
-          sessionOutputTokens: prev.sessionOutputTokens,
-          sessionTotalTokens: prev.sessionTotalTokens,
-          sessionRequests: prev.sessionRequests,
-          sessionCreditsUsed: prev.sessionCreditsUsed,
-        };
-      });
-      return;
-    }
-    saveCreditStatsForUser(activeUserEmail, tokenUsage);
-  }, [activeUserEmail, tokenUsage]);
-
-  useEffect(() => {
+    if (firebaseUser) return;
     const timer = window.setTimeout(() => {
       try {
         window.localStorage.setItem(
@@ -290,9 +396,10 @@ export default function App() {
       }
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [sessions]);
+  }, [firebaseUser, sessions]);
 
   useEffect(() => {
+    if (firebaseUser) return;
     try {
       window.localStorage.setItem(
         STORAGE_KEYS.tasks,
@@ -301,9 +408,10 @@ export default function App() {
     } catch {
       // Ignore storage quota errors
     }
-  }, [dailyTasks]);
+  }, [firebaseUser, dailyTasks]);
 
   useEffect(() => {
+    if (firebaseUser) return;
     try {
       window.localStorage.setItem(
         STORAGE_KEYS.notes,
@@ -312,7 +420,7 @@ export default function App() {
     } catch {
       // Ignore storage quota errors
     }
-  }, [quickNotes]);
+  }, [firebaseUser, quickNotes]);
 
   const handleChangeThemeMode = (mode: "light" | "dark") => {
     setThemePreferences((prev) => ({
@@ -328,13 +436,22 @@ export default function App() {
     }));
   };
 
+  const handleContinueAsGuest = () => {
+    setGuestModeAccepted(true);
+    try {
+      window.sessionStorage.setItem(STORAGE_KEYS.guestSessionFlag, "1");
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
   const handleSignInGoogle = async () => {
     setGoogleAuthError(null);
     setGoogleAuthLoading(true);
     try {
-      const { user } = await signInGoogleWorkspace();
-      setGoogleUserEmail(user.email);
-      setGoogleUserName(user.displayName);
+      const { user, accessToken } = await signInGoogleWorkspace();
+      setFirebaseUser(user);
+      setWorkspaceOAuthToken(accessToken);
       setAuthModalOpen(false);
     } catch (err) {
       const msg = formatGoogleAuthError(err);
@@ -344,47 +461,72 @@ export default function App() {
     }
   };
 
-  const handleSignOutGoogle = async () => {
+  const handleLoginEmail = async (email: string, password: string) => {
+    const user = await loginWithEmailPassword(email, password);
+    setFirebaseUser(user);
+    setAuthModalOpen(false);
+  };
+
+  const handleRegisterEmail = async (
+    displayName: string,
+    email: string,
+    password: string,
+  ) => {
+    const user = await registerWithEmailPassword(displayName, email, password);
+    setFirebaseUser(user);
+    setAuthModalOpen(false);
+  };
+
+  const handleSignOutToWelcome = async () => {
     setGoogleAuthError(null);
     setGoogleAuthLoading(true);
     try {
       await signOutGoogleWorkspace();
-      setGoogleUserEmail(null);
-      setGoogleUserName(null);
+      setFirebaseUser(null);
+      setWorkspaceOAuthToken(null);
+      setGuestModeAccepted(false);
+      try {
+        window.sessionStorage.removeItem(STORAGE_KEYS.guestSessionFlag);
+      } catch {
+        // Ignore storage errors
+      }
+      // Restore clean guest state so cloud account data never remains in UI
+      const localSessions = readArrayStorage<ChatSession>(
+        STORAGE_KEYS.sessions,
+        [],
+      );
+      const nextSessions =
+        localSessions.length > 0 ? localSessions : [createEmptySession()];
+      setSessions(nextSessions);
+      setActiveSessionId(nextSessions[0].id);
+      setDailyTasks(readArrayStorage<DailyTask>(STORAGE_KEYS.tasks, []));
+      setQuickNotes(readArrayStorage<QuickNote>(STORAGE_KEYS.notes, []));
+      setTokenUsage(loadCreditStatsForUser(null));
+      setActiveTab("sandbox");
     } catch (err) {
-      const msg = formatGoogleAuthError(err);
-      setGoogleAuthError(msg);
+      setGoogleAuthError(formatGoogleAuthError(err));
     } finally {
       setGoogleAuthLoading(false);
     }
   };
 
-  const handleLoginLocal = async (email: string, password: string) => {
-    const session = await loginLocalAccount({ email, password });
-    setLocalAccount(session);
-  };
-
-  const handleRegisterLocal = async (
-    displayName: string,
-    email: string,
-    password: string,
-  ) => {
-    const session = await registerLocalAccount({
-      displayName,
-      email,
-      password,
-    });
-    setLocalAccount(session);
-  };
-
-  const handleLogoutLocal = () => {
-    logoutLocalAccount();
-    setLocalAccount(null);
-  };
-
   const openAuthModal = (mode: "login" | "register" = "login") => {
     setAuthModalMode(mode);
     setAuthModalOpen(true);
+  };
+
+  const scheduleSessionSync = (uid: string, updatedSession: ChatSession) => {
+    const existingTimer = sessionSyncTimersRef.current[updatedSession.id];
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+    }
+    sessionSyncTimersRef.current[updatedSession.id] = window.setTimeout(() => {
+      delete sessionSyncTimersRef.current[updatedSession.id];
+      const latest =
+        sessionsRef.current.find((s) => s.id === updatedSession.id) ||
+        updatedSession;
+      void upsertSessionToFirestore(uid, latest);
+    }, 650);
   };
 
   const handleRecordUsage = (usage: TokenUsageSummary) => {
@@ -397,7 +539,8 @@ export default function App() {
           }
         : computeCreditCharge(usage.totalTokens || 0, isUltra);
 
-    setTokenUsage((prev) => ({
+    const prev = tokenUsageRef.current;
+    const nextStats: TokenUsageStats = {
       sessionPromptTokens: prev.sessionPromptTokens + (usage.promptTokens || 0),
       sessionOutputTokens: prev.sessionOutputTokens + (usage.outputTokens || 0),
       sessionTotalTokens: prev.sessionTotalTokens + (usage.totalTokens || 0),
@@ -410,11 +553,22 @@ export default function App() {
       creditsSavedEstimated:
         (prev.creditsSavedEstimated || 0) + computed.creditsSaved,
       lastUpdatedAt: Date.now(),
-    }));
+    };
+    setTokenUsage(nextStats);
+    if (firebaseUser) {
+      void syncCreditStatsToFirestore(firebaseUser, nextStats);
+    }
   };
 
   const handleResetTokenUsage = () => {
-    setTokenUsage({ ...createEmptyCreditStats(), lastUpdatedAt: Date.now() });
+    const nextStats: TokenUsageStats = {
+      ...createEmptyCreditStats(),
+      lastUpdatedAt: Date.now(),
+    };
+    setTokenUsage(nextStats);
+    if (firebaseUser) {
+      void syncCreditStatsToFirestore(firebaseUser, nextStats);
+    }
   };
 
   const handleCreateSession = () => {
@@ -422,35 +576,52 @@ export default function App() {
     setSessions((prev) => [fresh, ...prev]);
     setActiveSessionId(fresh.id);
     setActiveTab("sandbox");
+    if (firebaseUser) {
+      void upsertSessionToFirestore(firebaseUser.uid, fresh);
+    }
   };
 
   const handleTogglePinSession = (sessionId: string) => {
+    let targetUpdated: ChatSession | null = null;
     setSessions((prev) =>
-      prev.map((s) =>
-        s.id === sessionId ? { ...s, pinned: !s.pinned } : s,
-      ),
+      prev.map((s) => {
+        if (s.id !== sessionId) return s;
+        targetUpdated = { ...s, pinned: !s.pinned };
+        return targetUpdated;
+      }),
     );
+    if (firebaseUser && targetUpdated) {
+      void upsertSessionToFirestore(firebaseUser.uid, targetUpdated);
+    }
   };
 
   const handleDeleteSession = (sessionId: string) => {
-    setSessions((prev) => {
-      const remaining = prev.filter((s) => s.id !== sessionId);
-      if (remaining.length === 0) {
-        const fresh = createEmptySession();
-        setActiveSessionId(fresh.id);
-        return [fresh];
+    const prev = sessionsRef.current;
+    const remaining = prev.filter((s) => s.id !== sessionId);
+    if (remaining.length === 0) {
+      const fresh = createEmptySession();
+      setSessions([fresh]);
+      setActiveSessionId(fresh.id);
+      if (firebaseUser) {
+        void deleteSessionFromFirestore(firebaseUser.uid, sessionId);
+        void upsertSessionToFirestore(firebaseUser.uid, fresh);
       }
-      if (activeSessionId === sessionId) {
-        setActiveSessionId(remaining[0].id);
-      }
-      return remaining;
-    });
+      return;
+    }
+    if (activeSessionId === sessionId) {
+      setActiveSessionId(remaining[0].id);
+    }
+    setSessions(remaining);
+    if (firebaseUser) {
+      void deleteSessionFromFirestore(firebaseUser.uid, sessionId);
+    }
   };
 
   const handleUpdateSessionMessages = (
     sessionId: string,
     nextMessages: ChatMessage[],
   ) => {
+    let updatedSession: ChatSession | null = null;
     setSessions((prev) =>
       prev.map((session) => {
         if (session.id !== sessionId) return session;
@@ -461,14 +632,74 @@ export default function App() {
             : nextMessages.length === 0
               ? "Obrolan Baru"
               : session.title;
-        return {
+        updatedSession = {
           ...session,
           title: autoTitle,
           messages: nextMessages.slice(-40),
           updatedAt: Date.now(),
         };
+        return updatedSession;
       }),
     );
+    if (firebaseUser && updatedSession) {
+      scheduleSessionSync(firebaseUser.uid, updatedSession);
+    }
+  };
+
+  const handleUpdateDailyTasks = (
+    updater: (prev: DailyTask[]) => DailyTask[],
+  ) => {
+    const prev = tasksRef.current;
+    const next = updater(prev);
+    tasksRef.current = next;
+    setDailyTasks(next);
+
+    if (firebaseUser) {
+      const prevMap = new Map<string, DailyTask>(prev.map((t) => [t.id, t]));
+      const nextIds = new Set(next.map((t) => t.id));
+      for (const task of next) {
+        const old = prevMap.get(task.id);
+        if (
+          !old ||
+          old.title !== task.title ||
+          old.done !== task.done ||
+          old.timeLabel !== task.timeLabel ||
+          old.priority !== task.priority
+        ) {
+          void upsertTaskToFirestore(firebaseUser.uid, task);
+        }
+      }
+      for (const old of prev) {
+        if (!nextIds.has(old.id)) {
+          void deleteTaskFromFirestore(firebaseUser.uid, old.id);
+        }
+      }
+    }
+  };
+
+  const handleUpdateQuickNotes = (
+    updater: (prev: QuickNote[]) => QuickNote[],
+  ) => {
+    const prev = notesRef.current;
+    const next = updater(prev);
+    notesRef.current = next;
+    setQuickNotes(next);
+
+    if (firebaseUser) {
+      const prevMap = new Map<string, QuickNote>(prev.map((n) => [n.id, n]));
+      const nextIds = new Set(next.map((n) => n.id));
+      for (const note of next) {
+        const old = prevMap.get(note.id);
+        if (!old || old.title !== note.title || old.content !== note.content) {
+          void upsertNoteToFirestore(firebaseUser.uid, note);
+        }
+      }
+      for (const old of prev) {
+        if (!nextIds.has(old.id)) {
+          void deleteNoteFromFirestore(firebaseUser.uid, old.id);
+        }
+      }
+    }
   };
 
   const handleOpenArtifactEntry = (entry: SessionArtifactEntry) => {
@@ -483,7 +714,44 @@ export default function App() {
     setActiveSessionId(fresh.id);
     setQueuedPrompt(prompt);
     setActiveTab("sandbox");
+    if (firebaseUser) {
+      void upsertSessionToFirestore(firebaseUser.uid, fresh);
+    }
   };
+
+  // Loading state while Firebase Auth checks saved browser session
+  if (!authResolved) {
+    return (
+      <div
+        className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 p-6"
+        style={{
+          backgroundColor: "var(--bg-canvas)",
+          color: "var(--text-primary)",
+        }}
+      >
+        <HelperBrandLogo size="lg" showWordmark layout="stacked" />
+        <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+          Memeriksa sesi akun Anda...
+        </p>
+      </div>
+    );
+  }
+
+  // First-screen Auth Welcome Gate when neither signed in nor Guest mode chosen
+  if (!firebaseUser && !guestModeAccepted) {
+    return (
+      <AuthWelcomeScreen
+        isDark={isCurrentDark}
+        onChangeThemeMode={handleChangeThemeMode}
+        googleAuthLoading={googleAuthLoading}
+        googleAuthError={googleAuthError}
+        onLoginEmail={handleLoginEmail}
+        onRegisterEmail={handleRegisterEmail}
+        onSignInGoogle={handleSignInGoogle}
+        onContinueAsGuest={handleContinueAsGuest}
+      />
+    );
+  }
 
   const activeSession =
     sessions.find((s) => s.id === activeSessionId) || sessions[0];
@@ -497,7 +765,7 @@ export default function App() {
 
   return (
     <div
-      className="flex h-screen overflow-hidden transition-colors duration-150"
+      className="flex h-[100dvh] w-full overflow-hidden transition-colors duration-150"
       style={{
         backgroundColor: "var(--bg-canvas)",
         color: "var(--text-primary)",
@@ -513,7 +781,8 @@ export default function App() {
         isStreaming={false}
         activeUserEmail={activeUserEmail}
         activeUserName={activeUserName}
-        isGoogleConnected={Boolean(googleUserEmail)}
+        isCloudSynced={Boolean(firebaseUser)}
+        isGoogleConnected={Boolean(googleWorkspaceEmail)}
         tokenSaverMode={assistantConfig.tokenSaverMode}
         ultraSaverMode={isUltraSaver}
         creditsRemaining={creditsRemaining}
@@ -524,159 +793,220 @@ export default function App() {
         onTogglePinSession={handleTogglePinSession}
         onDeleteSession={handleDeleteSession}
         onOpenAuthModal={() => openAuthModal("login")}
+        onSignOut={() => void handleSignOutToWelcome()}
       />
 
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {activeTab === "sandbox" && activeSession ? (
-          <ChatSandboxSection
-            sidebarOpen={sidebarOpen}
-            isDark={isCurrentDark}
-            config={assistantConfig}
-            activeSession={activeSession}
-            dailyTasks={dailyTasks}
-            quickNotes={quickNotes}
-            queuedPrompt={queuedPrompt}
-            requestedArtifactId={requestedArtifactId}
-            recentArtifacts={allArtifacts.slice(0, 4)}
-            activeUserEmail={activeUserEmail}
-            activeUserName={activeUserName}
-            googleUserEmail={googleUserEmail}
-            googleUserName={googleUserName}
-            googleAuthLoading={googleAuthLoading}
-            googleAuthError={googleAuthError}
-            creditStats={tokenUsage}
-            onChangeThemeMode={handleChangeThemeMode}
-            onConsumeQueuedPrompt={() => setQueuedPrompt(null)}
-            onConsumeRequestedArtifact={() => setRequestedArtifactId(null)}
-            onOpenSidebar={() => setSidebarOpen(true)}
-            onCreateSession={handleCreateSession}
-            onChangeConfig={setAssistantConfig}
-            onUpdateSessionMessages={handleUpdateSessionMessages}
-            onUpdateDailyTasks={setDailyTasks}
-            onUpdateQuickNotes={setQuickNotes}
-            onOpenTasks={() => setActiveTab("tasks")}
-            onOpenArtifactsGallery={() => setActiveTab("artifacts")}
-            onOpenArtifactEntry={handleOpenArtifactEntry}
-            onEditStudio={() => {
-              setSettingsSubTab("studio");
-              setActiveTab("settings");
-            }}
-            onOpenGoogleSettings={() => {
-              setSettingsSubTab("workspace");
-              setActiveTab("settings");
-            }}
-            onOpenCreditSettings={() => {
-              setSettingsSubTab("workspace");
-              setActiveTab("settings");
-            }}
-            onOpenAuthModal={() => openAuthModal("login")}
-            onSignInGoogle={() => void handleSignInGoogle()}
-            onRecordUsage={handleRecordUsage}
-          />
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <header
-              className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4"
-              style={{
-                backgroundColor: "var(--bg-canvas)",
-                borderColor: "var(--border-subtle)",
+        <OfflineStatusBanner />
+
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {activeTab === "sandbox" && activeSession ? (
+            <ChatSandboxSection
+              sidebarOpen={sidebarOpen}
+              isDark={isCurrentDark}
+              config={assistantConfig}
+              activeSession={activeSession}
+              dailyTasks={dailyTasks}
+              quickNotes={quickNotes}
+              queuedPrompt={queuedPrompt}
+              requestedArtifactId={requestedArtifactId}
+              recentArtifacts={allArtifacts.slice(0, 4)}
+              activeUserEmail={activeUserEmail}
+              activeUserName={activeUserName}
+              isCloudSynced={Boolean(firebaseUser)}
+              googleUserEmail={googleWorkspaceEmail}
+              googleUserName={firebaseUser?.displayName || null}
+              googleAuthLoading={googleAuthLoading}
+              googleAuthError={googleAuthError}
+              creditStats={tokenUsage}
+              onChangeThemeMode={handleChangeThemeMode}
+              onConsumeQueuedPrompt={() => setQueuedPrompt(null)}
+              onConsumeRequestedArtifact={() => setRequestedArtifactId(null)}
+              onOpenSidebar={() => setSidebarOpen(true)}
+              onCreateSession={handleCreateSession}
+              onChangeConfig={setAssistantConfig}
+              onUpdateSessionMessages={handleUpdateSessionMessages}
+              onUpdateDailyTasks={handleUpdateDailyTasks}
+              onUpdateQuickNotes={handleUpdateQuickNotes}
+              onOpenTasks={() => setActiveTab("tasks")}
+              onOpenArtifactsGallery={() => setActiveTab("artifacts")}
+              onOpenArtifactEntry={handleOpenArtifactEntry}
+              onEditStudio={() => {
+                setSettingsSubTab("studio");
+                setActiveTab("settings");
               }}
-            >
-              <div className="flex items-center gap-2.5">
-                {!sidebarOpen ? (
+              onOpenGoogleSettings={() => {
+                setSettingsSubTab("workspace");
+                setActiveTab("settings");
+              }}
+              onOpenCreditSettings={() => {
+                setSettingsSubTab("workspace");
+                setActiveTab("settings");
+              }}
+              onOpenAuthModal={() => openAuthModal("login")}
+              onSignInGoogle={() => void handleSignInGoogle()}
+              onRecordUsage={handleRecordUsage}
+            />
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <header
+                className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-3 sm:px-4"
+                style={{
+                  backgroundColor: "var(--bg-canvas)",
+                  borderColor: "var(--border-subtle)",
+                }}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  {!sidebarOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => setSidebarOpen(true)}
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center border hover:opacity-80 sm:h-8 sm:w-8"
+                      style={{
+                        borderColor: "var(--border-subtle)",
+                        borderRadius: "var(--radius-control)",
+                      }}
+                      aria-label="Buka sidebar"
+                    >
+                      <PanelLeftOpen className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                  <h1 className="truncate font-display text-sm font-bold">
+                    {TAB_LABELS[activeTab]}
+                  </h1>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setSidebarOpen(true)}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center border hover:opacity-80"
+                    onClick={handleCreateSession}
+                    className="inline-flex min-h-[36px] items-center gap-1.5 border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap hover:opacity-80 sm:px-3"
                     style={{
-                      borderColor: "var(--border-subtle)",
+                      borderColor: "var(--border-strong)",
                       borderRadius: "var(--radius-control)",
                     }}
-                    aria-label="Buka sidebar"
+                    aria-label="Obrolan Baru"
                   >
-                    <PanelLeftOpen className="h-4 w-4" />
+                    <SquarePen className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Obrolan Baru</span>
                   </button>
-                ) : null}
-                <h1 className="font-display text-sm font-bold">
-                  {TAB_LABELS[activeTab]}
-                </h1>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleCreateSession}
-                  className="inline-flex min-h-[34px] items-center gap-1.5 border px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:opacity-80"
-                  style={{
-                    borderColor: "var(--border-strong)",
-                    borderRadius: "var(--radius-control)",
-                  }}
-                >
-                  <SquarePen className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Obrolan Baru</span>
-                </button>
-
-                <ThemeToggleTabs
-                  isDark={isCurrentDark}
-                  onChangeMode={handleChangeThemeMode}
-                />
-              </div>
-            </header>
-
-            <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-              <div className="mx-auto max-w-6xl">
-                {activeTab === "tasks" ? (
-                  <DailyTasksSection
-                    dailyTasks={dailyTasks}
-                    quickNotes={quickNotes}
-                    onUpdateDailyTasks={setDailyTasks}
-                    onUpdateQuickNotes={setQuickNotes}
-                    onPrioritizeWithAi={() => {
-                      setQueuedPrompt(
-                        "Berdasarkan daftar tugas saya saat ini, tolong bantu susunkan prioritas dan langkah paling realistis untuk hari ini.",
-                      );
-                      setActiveTab("sandbox");
-                    }}
+                  <ThemeToggleTabs
+                    isDark={isCurrentDark}
+                    onChangeMode={handleChangeThemeMode}
                   />
-                ) : null}
+                </div>
+              </header>
 
-                {activeTab === "artifacts" ? (
-                  <ArtifactsGallerySection
-                    entries={allArtifacts}
-                    onOpenArtifactEntry={handleOpenArtifactEntry}
-                    onStartPromptInChat={handleStartPromptInChat}
-                  />
-                ) : null}
+              <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6">
+                <div className="mx-auto max-w-6xl">
+                  {activeTab === "tasks" ? (
+                    <DailyTasksSection
+                      dailyTasks={dailyTasks}
+                      quickNotes={quickNotes}
+                      onUpdateDailyTasks={handleUpdateDailyTasks}
+                      onUpdateQuickNotes={handleUpdateQuickNotes}
+                      onPrioritizeWithAi={() => {
+                        setQueuedPrompt(
+                          "Berdasarkan daftar tugas saya saat ini, tolong bantu susunkan prioritas dan langkah paling realistis untuk hari ini.",
+                        );
+                        setActiveTab("sandbox");
+                      }}
+                    />
+                  ) : null}
 
-                {activeTab === "settings" ? (
-                  <SettingsSection
-                    activeSubTab={settingsSubTab}
-                    onSelectSubTab={setSettingsSubTab}
-                    assistantConfig={assistantConfig}
-                    onChangeAssistantConfig={setAssistantConfig}
-                    themePreferences={themePreferences}
-                    onChangeThemePreferences={setThemePreferences}
-                    onResetTheme={() => setThemePreferences(DEFAULT_THEME)}
-                    onBackToChat={() => setActiveTab("sandbox")}
-                    activeUserEmail={activeUserEmail}
-                    activeUserName={activeUserName}
-                    localAccount={localAccount}
-                    googleUserEmail={googleUserEmail}
-                    googleUserName={googleUserName}
-                    googleAuthLoading={googleAuthLoading}
-                    googleAuthError={googleAuthError}
-                    onOpenAuthModal={() => openAuthModal("login")}
-                    onLogoutLocal={handleLogoutLocal}
-                    onSignInGoogle={() => void handleSignInGoogle()}
-                    onSignOutGoogle={() => void handleSignOutGoogle()}
-                    tokenUsage={tokenUsage}
-                    onResetTokenUsage={handleResetTokenUsage}
-                  />
-                ) : null}
+                  {activeTab === "artifacts" ? (
+                    <ArtifactsGallerySection
+                      entries={allArtifacts}
+                      onOpenArtifactEntry={handleOpenArtifactEntry}
+                      onStartPromptInChat={handleStartPromptInChat}
+                    />
+                  ) : null}
+
+                  {activeTab === "settings" ? (
+                    <SettingsSection
+                      activeSubTab={settingsSubTab}
+                      onSelectSubTab={setSettingsSubTab}
+                      assistantConfig={assistantConfig}
+                      onChangeAssistantConfig={setAssistantConfig}
+                      themePreferences={themePreferences}
+                      onChangeThemePreferences={setThemePreferences}
+                      onResetTheme={() => setThemePreferences(DEFAULT_THEME)}
+                      onBackToChat={() => setActiveTab("sandbox")}
+                      activeUserEmail={activeUserEmail}
+                      activeUserName={activeUserName}
+                      isCloudSynced={Boolean(firebaseUser)}
+                      googleUserEmail={googleWorkspaceEmail}
+                      googleUserName={firebaseUser?.displayName || null}
+                      googleAuthLoading={googleAuthLoading}
+                      googleAuthError={googleAuthError}
+                      onOpenAuthModal={() => openAuthModal("login")}
+                      onSignOutAll={() => void handleSignOutToWelcome()}
+                      onSignInGoogle={() => void handleSignInGoogle()}
+                      tokenUsage={tokenUsage}
+                      onResetTokenUsage={handleResetTokenUsage}
+                    />
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Mobile Bottom Navigation Bar (< 768px) */}
+        <nav
+          aria-label="Navigasi Utama Mobile"
+          className="grid shrink-0 grid-cols-4 border-t pb-safe md:hidden"
+          style={{
+            backgroundColor: "var(--bg-surface)",
+            borderColor: "var(--border-subtle)",
+          }}
+        >
+          {MOBILE_NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = activeTab === item.id;
+            const badge =
+              item.id === "tasks" && pendingTaskCount > 0
+                ? pendingTaskCount
+                : item.id === "artifacts" && allArtifacts.length > 0
+                  ? allArtifacts.length
+                  : null;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveTab(item.id)}
+                className="relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] font-semibold transition-colors"
+                style={{
+                  color: active ? "var(--accent)" : "var(--text-muted)",
+                }}
+              >
+                {active ? (
+                  <span
+                    className="absolute top-0 left-1/4 right-1/4 h-[2px]"
+                    style={{ background: "var(--accent-gradient)" }}
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <div className="relative">
+                  <Icon className="h-4 w-4" />
+                  {badge !== null ? (
+                    <span
+                      className="absolute -top-1.5 -right-2.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full px-1 font-mono text-[9px] font-bold"
+                      style={{
+                        backgroundColor: "var(--accent)",
+                        color: "var(--accent-contrast)",
+                      }}
+                    >
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  ) : null}
+                </div>
+                <span className="truncate">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </main>
 
       <AccountAuthModal
@@ -685,8 +1015,8 @@ export default function App() {
         googleAuthLoading={googleAuthLoading}
         googleAuthError={googleAuthError}
         onClose={() => setAuthModalOpen(false)}
-        onLoginLocal={handleLoginLocal}
-        onRegisterLocal={handleRegisterLocal}
+        onLoginEmail={handleLoginEmail}
+        onRegisterEmail={handleRegisterEmail}
         onSignInGoogle={handleSignInGoogle}
       />
     </div>

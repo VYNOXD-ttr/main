@@ -1,0 +1,216 @@
+{
+  "entities": {
+    "UserWorkspaceProfile": {
+      "title": "User Workspace Profile",
+      "description": "Cross-device user profile, 100M credit wallet telemetry, and assistant sync state.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "creditLimit": {
+          "type": "integer"
+        },
+        "creditsUsed": {
+          "type": "integer"
+        },
+        "creditsSavedEstimated": {
+          "type": "integer"
+        },
+        "allTimeTotalTokens": {
+          "type": "integer"
+        },
+        "allTimeRequests": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "displayName",
+        "creditLimit",
+        "creditsUsed",
+        "creditsSavedEstimated",
+        "allTimeTotalTokens",
+        "allTimeRequests",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChatSessionDoc": {
+      "title": "Chat Session",
+      "description": "Persisted chat session synced across devices for an authenticated user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "updatedAtMs": {
+          "type": "integer"
+        },
+        "messages": {
+          "type": "array"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "id",
+        "title",
+        "pinned",
+        "updatedAtMs",
+        "messages",
+        "updatedAt"
+      ]
+    },
+    "DailyTaskDoc": {
+      "title": "Daily Task",
+      "description": "User daily task synced across devices.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "timeLabel": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["tinggi", "normal", "santai"]
+        },
+        "done": {
+          "type": "boolean"
+        },
+        "createdAtMs": {
+          "type": "integer"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "id",
+        "title",
+        "priority",
+        "done",
+        "createdAtMs",
+        "updatedAt"
+      ]
+    },
+    "QuickNoteDoc": {
+      "title": "Quick Note",
+      "description": "User quick note synced across devices.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 12000
+        },
+        "createdAtMs": {
+          "type": "integer"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "id",
+        "title",
+        "content",
+        "createdAtMs",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserWorkspaceProfile"
+      },
+      "description": "Private user profile and 100M credit wallet telemetry."
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/ChatSessionDoc"
+      },
+      "description": "Cross-device synced chat sessions belonging to a user."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": {
+        "$ref": "#/entities/DailyTaskDoc"
+      },
+      "description": "Cross-device synced daily tasks belonging to a user."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": {
+        "$ref": "#/entities/QuickNoteDoc"
+      },
+      "description": "Cross-device synced quick notes belonging to a user."
+    }
+  }
+}

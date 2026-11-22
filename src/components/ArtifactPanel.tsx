@@ -125,7 +125,7 @@ export function ArtifactPanel({
 
   return (
     <aside
-      className="flex h-full min-h-[520px] flex-col overflow-hidden border"
+      className="flex h-full flex-col overflow-hidden border lg:min-h-[520px]"
       style={{
         backgroundColor: "var(--bg-surface)",
         borderColor: "var(--border-subtle)",
@@ -135,7 +135,7 @@ export function ArtifactPanel({
     >
       {/* Artifact Header */}
       <div
-        className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3"
+        className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 sm:px-4 sm:py-3"
         style={{ borderColor: "var(--border-subtle)" }}
       >
         <div className="min-w-0 flex-1">
@@ -163,7 +163,7 @@ export function ArtifactPanel({
                     key={item.id}
                     type="button"
                     onClick={() => onSelectArtifact(item.id)}
-                    className="shrink-0 border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors"
+                    className="min-h-[30px] shrink-0 border px-2.5 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors"
                     style={{
                       borderRadius: "var(--radius-control)",
                       borderColor: selected
@@ -185,7 +185,7 @@ export function ArtifactPanel({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {activeArtifact.isPreviewableHtml ? (
             <div
               className="flex items-center gap-0.5 p-0.5"
@@ -197,7 +197,7 @@ export function ArtifactPanel({
               <button
                 type="button"
                 onClick={() => setViewMode("preview")}
-                className="inline-flex min-h-[30px] items-center gap-1 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors"
+                className="inline-flex min-h-[36px] items-center gap-1 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors sm:min-h-[30px]"
                 style={{
                   borderRadius: "var(--radius-control)",
                   backgroundColor:
@@ -214,7 +214,7 @@ export function ArtifactPanel({
               <button
                 type="button"
                 onClick={() => setViewMode("code")}
-                className="inline-flex min-h-[30px] items-center gap-1 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors"
+                className="inline-flex min-h-[36px] items-center gap-1 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors sm:min-h-[30px]"
                 style={{
                   borderRadius: "var(--radius-control)",
                   backgroundColor:
@@ -234,7 +234,7 @@ export function ArtifactPanel({
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex min-h-[32px] items-center gap-1 border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:opacity-80"
+            className="inline-flex min-h-[38px] items-center gap-1 border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:opacity-80 sm:min-h-[32px]"
             style={{
               borderColor: "var(--border-subtle)",
               borderRadius: "var(--radius-control)",
@@ -257,7 +257,7 @@ export function ArtifactPanel({
           <button
             type="button"
             onClick={handleDownload}
-            className="inline-flex min-h-[32px] items-center gap-1 border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:opacity-80"
+            className="inline-flex min-h-[38px] items-center gap-1 border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:opacity-80 sm:min-h-[32px]"
             style={{
               borderColor: "var(--border-subtle)",
               borderRadius: "var(--radius-control)",
@@ -272,7 +272,7 @@ export function ArtifactPanel({
           <button
             type="button"
             onClick={handleSaveNote}
-            className="inline-flex min-h-[32px] items-center gap-1 border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:opacity-80"
+            className="inline-flex min-h-[38px] items-center gap-1 border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:opacity-80 sm:min-h-[32px]"
             style={{
               borderColor: "var(--border-subtle)",
               borderRadius: "var(--radius-control)",
@@ -294,7 +294,7 @@ export function ArtifactPanel({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-[32px] w-8 items-center justify-center border hover:opacity-80"
+            className="inline-flex h-10 w-10 items-center justify-center border hover:opacity-80 sm:h-8 sm:w-8"
             style={{
               borderColor: "var(--border-subtle)",
               borderRadius: "var(--radius-control)",
@@ -314,7 +314,7 @@ export function ArtifactPanel({
             title={activeArtifact.title}
             sandbox="allow-scripts"
             srcDoc={buildPreviewSrcDoc(activeArtifact)}
-            className="h-full min-h-[460px] w-full border-0 bg-slate-950"
+            className="h-full min-h-[360px] w-full border-0 bg-slate-950 lg:min-h-[460px]"
           />
         ) : (
           <pre

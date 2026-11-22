@@ -144,7 +144,8 @@ export function ThemeToggleTabs({
         role="tab"
         aria-selected={!isDark}
         onClick={() => onChangeMode("light")}
-        className="inline-flex min-h-[28px] items-center gap-1.5 px-2.5 py-1 text-xs font-semibold whitespace-nowrap transition-colors"
+        aria-label="Mode Terang"
+        className="inline-flex min-h-[32px] items-center gap-1.5 px-2 py-1 text-xs font-semibold whitespace-nowrap transition-colors sm:min-h-[28px] sm:px-2.5"
         style={{
           borderRadius: "calc(var(--radius-control) - 2px)",
           backgroundColor: !isDark ? "var(--bg-surface)" : "transparent",
@@ -155,7 +156,7 @@ export function ThemeToggleTabs({
           className="h-3.5 w-3.5 shrink-0"
           style={{ color: !isDark ? "var(--accent)" : "var(--text-muted)" }}
         />
-        <span>Terang</span>
+        <span className="hidden sm:inline">Terang</span>
       </button>
 
       <button
@@ -163,7 +164,8 @@ export function ThemeToggleTabs({
         role="tab"
         aria-selected={isDark}
         onClick={() => onChangeMode("dark")}
-        className="inline-flex min-h-[28px] items-center gap-1.5 px-2.5 py-1 text-xs font-semibold whitespace-nowrap transition-colors"
+        aria-label="Mode Gelap"
+        className="inline-flex min-h-[32px] items-center gap-1.5 px-2 py-1 text-xs font-semibold whitespace-nowrap transition-colors sm:min-h-[28px] sm:px-2.5"
         style={{
           borderRadius: "calc(var(--radius-control) - 2px)",
           backgroundColor: isDark ? "var(--bg-surface)" : "transparent",
@@ -174,7 +176,7 @@ export function ThemeToggleTabs({
           className="h-3.5 w-3.5 shrink-0"
           style={{ color: isDark ? "var(--accent)" : "var(--text-muted)" }}
         />
-        <span>Gelap</span>
+        <span className="hidden sm:inline">Gelap</span>
       </button>
     </div>
   );

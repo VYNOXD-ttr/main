@@ -9,8 +9,8 @@ interface AccountAuthModalProps {
   googleAuthLoading: boolean;
   googleAuthError: string | null;
   onClose: () => void;
-  onLoginLocal: (email: string, password: string) => Promise<void>;
-  onRegisterLocal: (
+  onLoginEmail: (email: string, password: string) => Promise<void>;
+  onRegisterEmail: (
     displayName: string,
     email: string,
     password: string,
@@ -24,8 +24,8 @@ export function AccountAuthModal({
   googleAuthLoading,
   googleAuthError,
   onClose,
-  onLoginLocal,
-  onRegisterLocal,
+  onLoginEmail,
+  onRegisterEmail,
   onSignInGoogle,
 }: AccountAuthModalProps) {
   const [mode, setMode] = useState<"login" | "register">(initialMode);
@@ -60,9 +60,9 @@ export function AccountAuthModal({
     setBusy(true);
     try {
       if (mode === "register") {
-        await onRegisterLocal(displayName, email, password);
+        await onRegisterEmail(displayName, email, password);
       } else {
-        await onLoginLocal(email, password);
+        await onLoginEmail(email, password);
       }
       setPassword("");
       onClose();
@@ -86,7 +86,7 @@ export function AccountAuthModal({
       }}
     >
       <div
-        className="claude-enter w-full max-w-md border p-6 shadow-2xl"
+        className="claude-enter w-full max-w-md border p-5 shadow-2xl sm:p-6"
         style={{
           backgroundColor: "var(--bg-surface)",
           borderColor: "var(--border-strong)",
@@ -110,7 +110,7 @@ export function AccountAuthModal({
                 className="text-xs"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Simpan dompet 100 Juta kredit &amp; profil kerja Anda
+                Sinkronkan dompet 100 Juta kredit &amp; riwayat lintas perangkat
               </p>
             </div>
           </div>
@@ -118,7 +118,7 @@ export function AccountAuthModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center border hover:opacity-75"
+            className="inline-flex h-10 w-10 items-center justify-center border hover:opacity-75"
             style={{
               borderColor: "var(--border-subtle)",
               borderRadius: "var(--radius-control)",
@@ -146,7 +146,7 @@ export function AccountAuthModal({
               setMode("login");
               setFormError(null);
             }}
-            className="inline-flex min-h-[36px] items-center justify-center gap-1.5 text-xs font-semibold transition-colors"
+            className="inline-flex min-h-[40px] items-center justify-center gap-1.5 text-xs font-semibold transition-colors"
             style={{
               borderRadius: "calc(var(--radius-control) - 2px)",
               backgroundColor:
@@ -169,7 +169,7 @@ export function AccountAuthModal({
               setMode("register");
               setFormError(null);
             }}
-            className="inline-flex min-h-[36px] items-center justify-center gap-1.5 text-xs font-semibold transition-colors"
+            className="inline-flex min-h-[40px] items-center justify-center gap-1.5 text-xs font-semibold transition-colors"
             style={{
               borderRadius: "calc(var(--radius-control) - 2px)",
               backgroundColor:
@@ -195,7 +195,7 @@ export function AccountAuthModal({
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Contoh: Arkananta"
-                className="w-full border px-3 py-2 text-sm focus:outline-none"
+                className="min-h-[44px] w-full border px-3 py-2 text-sm focus:outline-none"
                 style={{
                   backgroundColor: "var(--bg-canvas)",
                   borderColor: "var(--border-strong)",
@@ -214,7 +214,7 @@ export function AccountAuthModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="nama@email.com"
-              className="w-full border px-3 py-2 text-sm focus:outline-none"
+              className="min-h-[44px] w-full border px-3 py-2 text-sm focus:outline-none"
               style={{
                 backgroundColor: "var(--bg-canvas)",
                 borderColor: "var(--border-strong)",
@@ -235,7 +235,7 @@ export function AccountAuthModal({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Minimal 6 karakter"
-              className="w-full border px-3 py-2 text-sm focus:outline-none"
+              className="min-h-[44px] w-full border px-3 py-2 text-sm focus:outline-none"
               style={{
                 backgroundColor: "var(--bg-canvas)",
                 borderColor: "var(--border-strong)",
@@ -246,7 +246,7 @@ export function AccountAuthModal({
 
           {formError ? (
             <div
-              className="flex items-start gap-2 border px-3 py-2 text-xs text-rose-600 dark:text-rose-400"
+              className="flex items-start gap-2 border px-3 py-2 text-xs leading-relaxed text-rose-600 dark:text-rose-400"
               style={{
                 backgroundColor: "var(--bg-surface-muted)",
                 borderColor: "var(--border-strong)",
@@ -262,7 +262,7 @@ export function AccountAuthModal({
           <button
             type="submit"
             disabled={busy}
-            className="inline-flex min-h-[40px] w-full items-center justify-center gap-2 px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
             style={{
               background: "var(--accent-gradient)",
               backgroundColor: "var(--accent)",
@@ -275,7 +275,7 @@ export function AccountAuthModal({
               {busy
                 ? "Memproses..."
                 : mode === "login"
-                  ? "Masuk Sekarang"
+                  ? "Masuk & Sinkronkan"
                   : "Buat Akun & Masuk"}
             </span>
           </button>
@@ -290,7 +290,7 @@ export function AccountAuthModal({
               className="text-[11px] font-medium"
               style={{ color: "var(--text-muted)" }}
             >
-              Atau tautkan Google Workspace:
+              Atau masuk &amp; tautkan Google Workspace:
             </span>
           </div>
 
