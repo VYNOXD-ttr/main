@@ -1,3 +1,4 @@
+import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import {
   browserLocalPersistence,
@@ -76,10 +77,27 @@ const resolvedFirebaseConfig = {
     import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ||
     firebaseConfig.messagingSenderId,
   appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+  measurementId:
+    import.meta.env.VITE_FIREBASE_MEASUREMENT_ID ||
+    firebaseConfig.measurementId ||
+    "G-PCSWZDVGFQ",
 };
 
 export const firebaseApp: FirebaseApp =
   getApps().length > 0 ? getApp() : initializeApp(resolvedFirebaseConfig);
+
+export let firebaseAnalytics: Analytics | null = null;
+if (typeof window !== "undefined") {
+  void isSupported()
+    .then((supported) => {
+      if (supported && resolvedFirebaseConfig.measurementId) {
+        firebaseAnalytics = getAnalytics(firebaseApp);
+      }
+    })
+    .catch(() => {
+      // Ignore analytics errors when blocked by privacy extensions or unsupported browsers
+    });
+}
 
 export const firebaseAuth: Auth = getAuth(firebaseApp);
 
