@@ -1,0 +1,6 @@
+{
+  "name": "Helper.Id",
+  "description": "Asisten AI harian, koding full-stack, dan studio visualisasi 3D Three.js berbasis gemini-4-hydrogen dengan antarmuka sidebar modern.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
