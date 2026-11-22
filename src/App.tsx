@@ -57,6 +57,7 @@ import {
 import {
   formatGoogleAuthError,
   initWorkspaceAuth,
+  signInGoogleAccount,
   signInGoogleWorkspace,
   signOutGoogleWorkspace,
 } from "./utils/googleWorkspace";
@@ -445,6 +446,22 @@ export default function App() {
     }
   };
 
+  const handleSignInGoogleAccount = async () => {
+    setGoogleAuthError(null);
+    setGoogleAuthLoading(true);
+    try {
+      const { user } = await signInGoogleAccount();
+      setFirebaseUser(user);
+      setWorkspaceOAuthToken(null);
+      setAuthModalOpen(false);
+    } catch (err) {
+      const msg = formatGoogleAuthError(err);
+      setGoogleAuthError(msg);
+    } finally {
+      setGoogleAuthLoading(false);
+    }
+  };
+
   const handleSignInGoogle = async () => {
     setGoogleAuthError(null);
     setGoogleAuthLoading(true);
@@ -747,7 +764,7 @@ export default function App() {
         googleAuthError={googleAuthError}
         onLoginEmail={handleLoginEmail}
         onRegisterEmail={handleRegisterEmail}
-        onSignInGoogle={handleSignInGoogle}
+        onSignInGoogle={handleSignInGoogleAccount}
         onContinueAsGuest={handleContinueAsGuest}
       />
     );
@@ -1017,7 +1034,7 @@ export default function App() {
         onClose={() => setAuthModalOpen(false)}
         onLoginEmail={handleLoginEmail}
         onRegisterEmail={handleRegisterEmail}
-        onSignInGoogle={handleSignInGoogle}
+        onSignInGoogle={handleSignInGoogleAccount}
       />
     </div>
   );

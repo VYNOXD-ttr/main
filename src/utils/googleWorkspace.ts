@@ -16,10 +16,15 @@ export const GOOGLE_WORKSPACE_SCOPES = [
   "https://www.googleapis.com/auth/drive.file",
 ] as const;
 
-const provider = new GoogleAuthProvider();
+const basicProvider = new GoogleAuthProvider();
+
+const workspaceProvider = new GoogleAuthProvider();
 for (const scope of GOOGLE_WORKSPACE_SCOPES) {
-  provider.addScope(scope);
+  workspaceProvider.addScope(scope);
 }
+workspaceProvider.setCustomParameters({
+  prompt: "consent",
+});
 
 let isSigningIn = false;
 // Store OAuth access token strictly in memory (never in localStorage or sessionStorage)
@@ -31,6 +36,7 @@ export function formatGoogleAuthError(err: unknown): string {
       ? String((err as { code?: unknown }).code || "")
       : "";
   const rawMessage = err instanceof Error ? err.message : String(err || "");
+  const lowerMsg = rawMessage.toLowerCase();
   const host =
     typeof window !== "undefined" ? window.location.hostname : "domain ini";
 
@@ -38,7 +44,17 @@ export function formatGoogleAuthError(err: unknown): string {
     code === "auth/unauthorized-domain" ||
     rawMessage.includes("auth/unauthorized-domain")
   ) {
-    return `Login Google diblokir karena domain "${host}" belum terdaftar di Firebase Authorized Domains. Untuk mengaktifkannya di Vercel: tambahkan "${host}" di Firebase Console → Authentication → Settings → Authorized domains. Anda juga dapat langsung masuk menggunakan Email & Kata Sandi.`;
+    return `Login Google diblokir karena domain "${host}" belum terdaftar di Firebase Authorized Domains. Tambahkan "${host}" di Firebase Console → Authentication → Settings → Authorized domains, lalu pastikan Redirect URI "https://helper-8d935.firebaseapp.com/__/auth/handler" terdaftar di Google Cloud OAuth Client.`;
+  }
+  if (
+    lowerMsg.includes("access_denied") ||
+    lowerMsg.includes("verification") ||
+    lowerMsg.includes("disallowed_useragent")
+  ) {
+    return `Akses OAuth Google ditolak karena aplikasi berstatus Testing / belum diverifikasi Google. Tambahkan email Anda ke daftar Test users di Google Cloud Console → OAuth consent screen, atau masuk langsung menggunakan Email & Kata Sandi.`;
+  }
+  if (lowerMsg.includes("redirect_uri_mismatch")) {
+    return `Redirect URI belum cocok di Google Cloud Console. Pastikan "https://helper-8d935.firebaseapp.com/__/auth/handler" ada di Authorized redirect URIs dan "https://${host}" ada di Authorized JavaScript origins.`;
   }
   if (code === "auth/popup-blocked" || rawMessage.includes("auth/popup-blocked")) {
     return "Popup login Google diblokir oleh browser Anda. Izinkan popup untuk situs ini lalu coba lagi.";
@@ -52,7 +68,7 @@ export function formatGoogleAuthError(err: unknown): string {
   if (code === "auth/operation-not-supported-in-environment") {
     return "Lingkungan browser saat ini memblokir popup Google Auth. Buka situs langsung di tab browser biasa atau masuk menggunakan Email & Kata Sandi.";
   }
-  return rawMessage || "Gagal menautkan akun Google Workspace.";
+  return rawMessage || "Gagal menautkan akun Google.";
 }
 
 export function initWorkspaceAuth(
@@ -66,13 +82,35 @@ export function initWorkspaceAuth(
   });
 }
 
+/**
+ * Basic Google Sign-In (only standard openid/profile/email scopes).
+ * Does NOT request sensitive Gmail/Drive/Calendar scopes so login works smoothly without app verification blocks.
+ */
+export async function signInGoogleAccount(): Promise<{
+  user: User;
+}> {
+  isSigningIn = true;
+  try {
+    const result = await signInWithPopup(firebaseAuth, basicProvider);
+    cachedAccessToken = null;
+    return { user: result.user };
+  } catch (err) {
+    throw new Error(formatGoogleAuthError(err));
+  } finally {
+    isSigningIn = false;
+  }
+}
+
+/**
+ * Full Google Workspace OAuth Sign-In (requests Calendar, Gmail, Tasks, Drive scopes).
+ */
 export async function signInGoogleWorkspace(): Promise<{
   user: User;
   accessToken: string | null;
 }> {
   isSigningIn = true;
   try {
-    const result = await signInWithPopup(firebaseAuth, provider);
+    const result = await signInWithPopup(firebaseAuth, workspaceProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     cachedAccessToken = credential?.accessToken || null;
     return { user: result.user, accessToken: cachedAccessToken };

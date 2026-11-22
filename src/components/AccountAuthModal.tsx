@@ -290,7 +290,7 @@ export function AccountAuthModal({
               className="text-[11px] font-medium"
               style={{ color: "var(--text-muted)" }}
             >
-              Atau masuk &amp; tautkan Google Workspace:
+              Atau masuk cepat dengan akun Google:
             </span>
           </div>
 
