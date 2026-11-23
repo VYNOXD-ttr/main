@@ -7,23 +7,11 @@ import {
 import type { PendingAgentAction } from "../types/app";
 import { firebaseAuth, signOutFirebaseAccount } from "./firebaseClient";
 
-export const GOOGLE_WORKSPACE_SCOPES = [
-  "https://www.googleapis.com/auth/calendar.events",
-  "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/gmail.compose",
-  "https://www.googleapis.com/auth/tasks",
-  "https://www.googleapis.com/auth/drive.readonly",
-  "https://www.googleapis.com/auth/drive.file",
-] as const;
-
-const basicProvider = new GoogleAuthProvider();
-
-const workspaceProvider = new GoogleAuthProvider();
-for (const scope of GOOGLE_WORKSPACE_SCOPES) {
-  workspaceProvider.addScope(scope);
-}
-workspaceProvider.setCustomParameters({
-  prompt: "consent",
+const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope("email");
+googleProvider.addScope("profile");
+googleProvider.setCustomParameters({
+  prompt: "select_account",
 });
 
 let isSigningIn = false;
@@ -51,7 +39,7 @@ export function formatGoogleAuthError(err: unknown): string {
     lowerMsg.includes("verification") ||
     lowerMsg.includes("disallowed_useragent")
   ) {
-    return `Akses OAuth Google ditolak karena aplikasi berstatus Testing / belum diverifikasi Google. Tambahkan email Anda ke daftar Test users di Google Cloud Console → OAuth consent screen, atau masuk langsung menggunakan Email & Kata Sandi.`;
+    return `Akses OAuth Google ditolak (403 access_denied). Pastikan OAuth consent screen di Google Cloud Console berstatus Published (In production) atau email Anda terdaftar di Test users, atau masuk menggunakan Email & Kata Sandi.`;
   }
   if (lowerMsg.includes("redirect_uri_mismatch")) {
     return `Redirect URI belum cocok di Google Cloud Console. Pastikan "https://helper-8d935.firebaseapp.com/__/auth/handler" ada di Authorized redirect URIs dan "https://${host}" ada di Authorized JavaScript origins.`;
@@ -83,15 +71,14 @@ export function initWorkspaceAuth(
 }
 
 /**
- * Basic Google Sign-In (only standard openid/profile/email scopes).
- * Does NOT request sensitive Gmail/Drive/Calendar scopes so login works smoothly without app verification blocks.
+ * Basic Google Sign-In via Firebase Auth (requests only basic email and profile scopes).
  */
 export async function signInGoogleAccount(): Promise<{
   user: User;
 }> {
   isSigningIn = true;
   try {
-    const result = await signInWithPopup(firebaseAuth, basicProvider);
+    const result = await signInWithPopup(firebaseAuth, googleProvider);
     cachedAccessToken = null;
     return { user: result.user };
   } catch (err) {
@@ -101,19 +88,15 @@ export async function signInGoogleAccount(): Promise<{
   }
 }
 
-/**
- * Full Google Workspace OAuth Sign-In (requests Calendar, Gmail, Tasks, Drive scopes).
- */
 export async function signInGoogleWorkspace(): Promise<{
   user: User;
   accessToken: string | null;
 }> {
   isSigningIn = true;
   try {
-    const result = await signInWithPopup(firebaseAuth, workspaceProvider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    cachedAccessToken = credential?.accessToken || null;
-    return { user: result.user, accessToken: cachedAccessToken };
+    const result = await signInWithPopup(firebaseAuth, googleProvider);
+    cachedAccessToken = null;
+    return { user: result.user, accessToken: null };
   } catch (err) {
     throw new Error(formatGoogleAuthError(err));
   } finally {

@@ -49,6 +49,7 @@ interface SettingsSectionProps {
   onOpenAuthModal: () => void;
   onSignOutAll: () => void;
   onSignInGoogle: () => void;
+  onLinkGoogleWorkspace: () => void;
   tokenUsage: TokenUsageStats;
   onResetTokenUsage: () => void;
 }
@@ -115,6 +116,7 @@ export function SettingsSection({
   onOpenAuthModal,
   onSignOutAll,
   onSignInGoogle,
+  onLinkGoogleWorkspace,
   tokenUsage,
   onResetTokenUsage,
 }: SettingsSectionProps) {
@@ -302,6 +304,10 @@ export function SettingsSection({
                 >
                   <span>Masuk / Daftar Akun</span>
                 </button>
+                <GoogleSignInButton
+                  loading={googleAuthLoading}
+                  onClick={onSignInGoogle}
+                />
                 <button
                   type="button"
                   onClick={onSignOutAll}
@@ -363,15 +369,13 @@ export function SettingsSection({
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div className="space-y-1">
                 <h2 className="font-display text-lg font-bold">
-                  Tautan Akun Google Workspace
+                  Izin Tambahan Google Workspace (Opsional)
                 </h2>
                 <p
                   className="max-w-2xl text-sm"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Izinkan AI Agent membaca jadwal, email, tugas, dan dokumen Drive
-                  Anda. Setiap aksi membuat, mengubah, atau mengirim pesan tetap
-                  meminta konfirmasi Anda secara eksplisit.
+                  Opsional: izinkan AI Agent mengakses Calendar, Gmail, Tasks, dan Drive. Login akun biasa sudah cukup tanpa perlu menautkan izin tambahan ini (izin lanjutan memerlukan email terdaftar di Test Users Google Cloud selama status Testing).
                 </p>
               </div>
 
@@ -402,10 +406,20 @@ export function SettingsSection({
                   </button>
                 </div>
               ) : (
-                <GoogleSignInButton
-                  loading={googleAuthLoading}
-                  onClick={onSignInGoogle}
-                />
+                <button
+                  type="button"
+                  onClick={onLinkGoogleWorkspace}
+                  disabled={googleAuthLoading}
+                  className="inline-flex min-h-[40px] shrink-0 items-center border px-3.5 py-2 text-xs font-semibold whitespace-nowrap hover:opacity-80 disabled:opacity-50"
+                  style={{
+                    borderColor: "var(--border-strong)",
+                    borderRadius: "var(--radius-control)",
+                  }}
+                >
+                  {googleAuthLoading
+                    ? "Menghubungkan..."
+                    : "Tautkan Izin Workspace"}
+                </button>
               )}
             </div>
 

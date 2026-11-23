@@ -462,7 +462,7 @@ export default function App() {
     }
   };
 
-  const handleSignInGoogle = async () => {
+  const handleLinkGoogleWorkspace = async () => {
     setGoogleAuthError(null);
     setGoogleAuthLoading(true);
     try {
@@ -861,7 +861,7 @@ export default function App() {
                 setActiveTab("settings");
               }}
               onOpenAuthModal={() => openAuthModal("login")}
-              onSignInGoogle={() => void handleSignInGoogle()}
+              onSignInGoogle={() => void handleSignInGoogleAccount()}
               onRecordUsage={handleRecordUsage}
             />
           ) : (
@@ -959,7 +959,8 @@ export default function App() {
                       googleAuthError={googleAuthError}
                       onOpenAuthModal={() => openAuthModal("login")}
                       onSignOutAll={() => void handleSignOutToWelcome()}
-                      onSignInGoogle={() => void handleSignInGoogle()}
+                      onSignInGoogle={() => void handleSignInGoogleAccount()}
+                      onLinkGoogleWorkspace={() => void handleLinkGoogleWorkspace()}
                       tokenUsage={tokenUsage}
                       onResetTokenUsage={handleResetTokenUsage}
                     />

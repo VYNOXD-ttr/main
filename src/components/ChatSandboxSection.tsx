@@ -1230,7 +1230,7 @@ export function ChatSandboxSection({
 
                 {renderComposer(true)}
 
-                {!googleUserEmail ? (
+                {!isCloudSynced ? (
                   <div
                     className="space-y-2.5 border px-3.5 py-3 sm:px-4"
                     style={{
@@ -1244,27 +1244,23 @@ export function ChatSandboxSection({
                         className="text-xs leading-relaxed"
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        {isCloudSynced && activeUserEmail
-                          ? `Tersinkron cloud sebagai ${activeUserEmail}. Tautkan Google Workspace bila ingin akses Calendar, Gmail, Tasks, dan Drive.`
-                          : "Masuk dengan akun Anda untuk menyimpan riwayat chat & 100 Juta kredit di semua perangkat, atau tautkan Google Workspace."}
+                        Masuk dengan Email atau Google (Email &amp; Profil) untuk menyimpan riwayat chat &amp; 100 Juta kredit di semua perangkat.
                       </p>
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        {!isCloudSynced ? (
-                          <button
-                            type="button"
-                            onClick={onOpenAuthModal}
-                            className="inline-flex min-h-[40px] items-center gap-2 px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-                            style={{
-                              background: "var(--accent-gradient)",
-                              backgroundColor: "var(--accent)",
-                              color: "var(--accent-contrast)",
-                              borderRadius: "var(--radius-control)",
-                            }}
-                          >
-                            <LogIn className="h-3.5 w-3.5" />
-                            <span>Masuk / Daftar</span>
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          onClick={onOpenAuthModal}
+                          className="inline-flex min-h-[40px] items-center gap-2 px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                          style={{
+                            background: "var(--accent-gradient)",
+                            backgroundColor: "var(--accent)",
+                            color: "var(--accent-contrast)",
+                            borderRadius: "var(--radius-control)",
+                          }}
+                        >
+                          <LogIn className="h-3.5 w-3.5" />
+                          <span>Masuk / Daftar</span>
+                        </button>
                         <GoogleSignInButton
                           loading={googleAuthLoading}
                           onClick={onSignInGoogle}
