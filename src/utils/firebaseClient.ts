@@ -19,11 +19,11 @@ import {
   getDocFromServer,
   getFirestore,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   type Firestore,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -550,21 +550,23 @@ export function subscribeUserWorkspace(
   const unsubSessions = onSnapshot(
     query(
       collection(firestoreDb, "users", uid, "sessions"),
-      orderBy("updatedAtMs", "desc"),
+      where("uid", "==", uid),
     ),
     (snap) => {
-      const list: ChatSession[] = snap.docs.map((d) => {
-        const data = d.data() as Record<string, unknown>;
-        return {
-          id: String(data.id || d.id),
-          title: String(data.title || "Obrolan Baru"),
-          pinned: Boolean(data.pinned),
-          updatedAt: Number(data.updatedAtMs) || Date.now(),
-          messages: Array.isArray(data.messages)
-            ? (data.messages as ChatMessage[])
-            : [],
-        };
-      });
+      const list: ChatSession[] = snap.docs
+        .map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          return {
+            id: String(data.id || d.id),
+            title: String(data.title || "Obrolan Baru"),
+            pinned: Boolean(data.pinned),
+            updatedAt: Number(data.updatedAtMs) || Date.now(),
+            messages: Array.isArray(data.messages)
+              ? (data.messages as ChatMessage[])
+              : [],
+          };
+        })
+        .sort((a, b) => b.updatedAt - a.updatedAt);
       handlers.onSessions(list);
     },
     (error) => {
@@ -575,24 +577,27 @@ export function subscribeUserWorkspace(
   const unsubTasks = onSnapshot(
     query(
       collection(firestoreDb, "users", uid, "tasks"),
-      orderBy("createdAtMs", "desc"),
+      where("uid", "==", uid),
     ),
     (snap) => {
-      const list: DailyTask[] = snap.docs.map((d) => {
-        const data = d.data() as Record<string, unknown>;
-        return {
-          id: String(data.id || d.id),
-          title: String(data.title || "Tugas"),
-          timeLabel:
-            typeof data.timeLabel === "string" ? data.timeLabel : undefined,
-          priority:
+      const list: DailyTask[] = snap.docs
+        .map((d): DailyTask => {
+          const data = d.data() as Record<string, unknown>;
+          const priority: DailyTask["priority"] =
             data.priority === "tinggi" || data.priority === "santai"
               ? data.priority
-              : "normal",
-          done: Boolean(data.done),
-          createdAt: Number(data.createdAtMs) || Date.now(),
-        };
-      });
+              : "normal";
+          return {
+            id: String(data.id || d.id),
+            title: String(data.title || "Tugas"),
+            timeLabel:
+              typeof data.timeLabel === "string" ? data.timeLabel : undefined,
+            priority,
+            done: Boolean(data.done),
+            createdAt: Number(data.createdAtMs) || Date.now(),
+          };
+        })
+        .sort((a, b) => b.createdAt - a.createdAt);
       handlers.onTasks(list);
     },
     (error) => {
@@ -603,18 +608,20 @@ export function subscribeUserWorkspace(
   const unsubNotes = onSnapshot(
     query(
       collection(firestoreDb, "users", uid, "notes"),
-      orderBy("createdAtMs", "desc"),
+      where("uid", "==", uid),
     ),
     (snap) => {
-      const list: QuickNote[] = snap.docs.map((d) => {
-        const data = d.data() as Record<string, unknown>;
-        return {
-          id: String(data.id || d.id),
-          title: String(data.title || "Catatan Cepat"),
-          content: String(data.content || ""),
-          createdAt: Number(data.createdAtMs) || Date.now(),
-        };
-      });
+      const list: QuickNote[] = snap.docs
+        .map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          return {
+            id: String(data.id || d.id),
+            title: String(data.title || "Catatan Cepat"),
+            content: String(data.content || ""),
+            createdAt: Number(data.createdAtMs) || Date.now(),
+          };
+        })
+        .sort((a, b) => b.createdAt - a.createdAt);
       handlers.onNotes(list);
     },
     (error) => {

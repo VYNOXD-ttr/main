@@ -11,9 +11,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AccountAuthModal } from "./components/AccountAuthModal";
 import type { SessionArtifactEntry } from "./components/ArtifactPreviewCard";
 import { ArtifactsGallerySection } from "./components/ArtifactsGallerySection";
-import { AuthWelcomeScreen } from "./components/AuthWelcomeScreen";
 import { ChatSandboxSection } from "./components/ChatSandboxSection";
-import { HelperBrandLogo, ThemeToggleTabs } from "./components/ClaudeMark";
+import { ThemeToggleTabs } from "./components/ClaudeMark";
 import { DailyTasksSection } from "./components/DailyTasksSection";
 import { GptSidebar } from "./components/GptSidebar";
 import { extractArtifactsFromText } from "./components/MarkdownMessage";
@@ -143,14 +142,6 @@ function readArrayStorage<T>(key: string, fallback: T[]): T[] {
   }
 }
 
-function readGuestModeFlag(): boolean {
-  try {
-    return window.sessionStorage.getItem(STORAGE_KEYS.guestSessionFlag) === "1";
-  } catch {
-    return false;
-  }
-}
-
 const TAB_LABELS: Record<NavTab, string> = {
   sandbox: "Asisten Chat",
   tasks: "Tugas & Proyek",
@@ -181,14 +172,10 @@ export default function App() {
     null,
   );
 
-  // Firebase Auth + Guest Gate state
-  const [authResolved, setAuthResolved] = useState(false);
+  // Optional Firebase Auth state (no login gate required)
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [workspaceOAuthToken, setWorkspaceOAuthToken] = useState<string | null>(
     null,
-  );
-  const [guestModeAccepted, setGuestModeAccepted] = useState<boolean>(() =>
-    readGuestModeFlag(),
   );
   const [googleAuthLoading, setGoogleAuthLoading] = useState(false);
   const [googleAuthError, setGoogleAuthError] = useState<string | null>(null);
@@ -271,12 +258,11 @@ export default function App() {
     void testFirestoreConnection();
   }, []);
 
-  // Listen for Firebase Auth state (persisted forever via browserLocalPersistence)
+  // Listen for Firebase Auth state in background (no blocking gate)
   useEffect(() => {
     const unsubscribe = initWorkspaceAuth((user, token) => {
       setFirebaseUser(user);
       setWorkspaceOAuthToken(token);
-      setAuthResolved(true);
     });
     return () => unsubscribe();
   }, []);
@@ -437,15 +423,6 @@ export default function App() {
     }));
   };
 
-  const handleContinueAsGuest = () => {
-    setGuestModeAccepted(true);
-    try {
-      window.sessionStorage.setItem(STORAGE_KEYS.guestSessionFlag, "1");
-    } catch {
-      // Ignore storage errors
-    }
-  };
-
   const handleSignInGoogleAccount = async () => {
     setGoogleAuthError(null);
     setGoogleAuthLoading(true);
@@ -501,13 +478,7 @@ export default function App() {
       await signOutGoogleWorkspace();
       setFirebaseUser(null);
       setWorkspaceOAuthToken(null);
-      setGuestModeAccepted(false);
-      try {
-        window.sessionStorage.removeItem(STORAGE_KEYS.guestSessionFlag);
-      } catch {
-        // Ignore storage errors
-      }
-      // Restore clean guest state so cloud account data never remains in UI
+      // Restore local storage state cleanly
       const localSessions = readArrayStorage<ChatSession>(
         STORAGE_KEYS.sessions,
         [],
@@ -735,40 +706,6 @@ export default function App() {
       void upsertSessionToFirestore(firebaseUser.uid, fresh);
     }
   };
-
-  // Loading state while Firebase Auth checks saved browser session
-  if (!authResolved) {
-    return (
-      <div
-        className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 p-6"
-        style={{
-          backgroundColor: "var(--bg-canvas)",
-          color: "var(--text-primary)",
-        }}
-      >
-        <HelperBrandLogo size="lg" showWordmark layout="stacked" />
-        <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
-          Memeriksa sesi akun Anda...
-        </p>
-      </div>
-    );
-  }
-
-  // First-screen Auth Welcome Gate when neither signed in nor Guest mode chosen
-  if (!firebaseUser && !guestModeAccepted) {
-    return (
-      <AuthWelcomeScreen
-        isDark={isCurrentDark}
-        onChangeThemeMode={handleChangeThemeMode}
-        googleAuthLoading={googleAuthLoading}
-        googleAuthError={googleAuthError}
-        onLoginEmail={handleLoginEmail}
-        onRegisterEmail={handleRegisterEmail}
-        onSignInGoogle={handleSignInGoogleAccount}
-        onContinueAsGuest={handleContinueAsGuest}
-      />
-    );
-  }
 
   const activeSession =
     sessions.find((s) => s.id === activeSessionId) || sessions[0];

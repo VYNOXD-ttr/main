@@ -10,7 +10,6 @@ import {
   Code2,
   Cpu,
   Globe,
-  LogIn,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
@@ -55,7 +54,6 @@ import {
   type SessionArtifactEntry,
 } from "./ArtifactPreviewCard";
 import { HelperBrandLogo, ThemeToggleTabs } from "./ClaudeMark";
-import { GoogleSignInButton } from "./GoogleSignInButton";
 import { extractArtifactsFromText, MarkdownMessage } from "./MarkdownMessage";
 
 interface ChatSandboxSectionProps {
@@ -478,6 +476,16 @@ export function ChatSandboxSection({
       });
 
       if (!response.ok || !response.body) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            `Akses server ditolak (HTTP ${response.status}). Jika di Vercel, matikan Deployment Protection/Vercel Authentication agar akun lain bisa memakai link publik.`,
+          );
+        }
+        if (response.status === 404) {
+          throw new Error(
+            "Endpoint AI tidak ditemukan (HTTP 404). Pastikan aplikasi dijalankan di Vercel atau server Node.js, bukan hosting statis saja.",
+          );
+        }
         throw new Error(`HTTP ${response.status}`);
       }
 
@@ -583,7 +591,7 @@ export function ChatSandboxSection({
           : "Terjadi kendala saat menghubungi server AI.";
       setErrorBanner(msg);
       syncAssistantMessage({
-        text: accumulated || "Permintaan tidak dapat diselesaikan.",
+        text: accumulated || `Permintaan tidak dapat diselesaikan: ${msg}`,
         error: msg,
       });
     } finally {
@@ -908,14 +916,14 @@ export function ChatSandboxSection({
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             type="button"
-            onClick={activeUserEmail ? onOpenGoogleSettings : onOpenAuthModal}
+            onClick={onOpenGoogleSettings}
             className="truncate max-w-[200px] hover:underline sm:max-w-none"
           >
             {googleUserEmail
               ? `Workspace: ${googleUserEmail}`
               : isCloudSynced && activeUserEmail
                 ? `Cloud: ${activeUserEmail}`
-                : "Tamu · Masuk untuk Sinkron Cloud"}
+                : "Tersimpan Lokal · Siap Pakai"}
           </button>
           <span className="hidden sm:inline">·</span>
           <span className="hidden sm:inline">
@@ -1229,57 +1237,6 @@ export function ChatSandboxSection({
                 </div>
 
                 {renderComposer(true)}
-
-                {!isCloudSynced ? (
-                  <div
-                    className="space-y-2.5 border px-3.5 py-3 sm:px-4"
-                    style={{
-                      backgroundColor: "var(--bg-surface)",
-                      borderColor: "var(--border-subtle)",
-                      borderRadius: "var(--radius-control)",
-                    }}
-                  >
-                    <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-                      <p
-                        className="text-xs leading-relaxed"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Masuk dengan Email atau Google (Email &amp; Profil) untuk menyimpan riwayat chat &amp; 100 Juta kredit di semua perangkat.
-                      </p>
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={onOpenAuthModal}
-                          className="inline-flex min-h-[40px] items-center gap-2 px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-                          style={{
-                            background: "var(--accent-gradient)",
-                            backgroundColor: "var(--accent)",
-                            color: "var(--accent-contrast)",
-                            borderRadius: "var(--radius-control)",
-                          }}
-                        >
-                          <LogIn className="h-3.5 w-3.5" />
-                          <span>Masuk / Daftar</span>
-                        </button>
-                        <GoogleSignInButton
-                          loading={googleAuthLoading}
-                          onClick={onSignInGoogle}
-                        />
-                      </div>
-                    </div>
-
-                    {googleAuthError ? (
-                      <div
-                        className="flex items-start gap-2 border-t pt-2.5 text-xs leading-relaxed text-rose-600 dark:text-rose-400"
-                        style={{ borderColor: "var(--border-subtle)" }}
-                        role="alert"
-                      >
-                        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        <span>{googleAuthError}</span>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
 
                 {errorBanner ? (
                   <div

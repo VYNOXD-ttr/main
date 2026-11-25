@@ -257,8 +257,8 @@ export function SettingsSection({
                 style={{ color: "var(--text-secondary)" }}
               >
                 {isCloudSynced && activeUserEmail
-                  ? `Masuk sebagai ${activeUserName || activeUserEmail} (${activeUserEmail}). Riwayat chat, tugas, catatan, dan dompet 100 Juta kredit tersimpan selamanya di Cloud Firestore dan otomatis ikut saat login di HP maupun laptop.`
-                  : "Anda sedang dalam Mode Tamu (tersimpan lokal di browser ini). Masuk dengan Email atau Google untuk menyimpan sesi selamanya lintas perangkat."}
+                  ? `Masuk sebagai ${activeUserName || activeUserEmail} (${activeUserEmail}). Riwayat chat, tugas, catatan, dan dompet 100 Juta kredit tersimpan selamanya di Cloud Firestore.`
+                  : "Aplikasi langsung aktif tanpa perlu login (data & kuota kredit tersimpan otomatis di browser ini). Anda bisa masuk kapan saja secara opsional bila ingin sinkronisasi lintas perangkat."}
               </p>
             </div>
 
@@ -294,31 +294,18 @@ export function SettingsSection({
                 <button
                   type="button"
                   onClick={onOpenAuthModal}
-                  className="inline-flex min-h-[42px] shrink-0 items-center gap-2 px-4 py-2 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-                  style={{
-                    background: "var(--accent-gradient)",
-                    backgroundColor: "var(--accent)",
-                    color: "var(--accent-contrast)",
-                    borderRadius: "var(--radius-control)",
-                  }}
-                >
-                  <span>Masuk / Daftar Akun</span>
-                </button>
-                <GoogleSignInButton
-                  loading={googleAuthLoading}
-                  onClick={onSignInGoogle}
-                />
-                <button
-                  type="button"
-                  onClick={onSignOutAll}
-                  className="inline-flex min-h-[42px] items-center border px-3.5 py-2 text-xs font-semibold whitespace-nowrap hover:opacity-80"
+                  className="inline-flex min-h-[42px] shrink-0 items-center gap-2 border px-4 py-2 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-80"
                   style={{
                     borderColor: "var(--border-strong)",
                     borderRadius: "var(--radius-control)",
                   }}
                 >
-                  Layar Masuk
+                  <span>Sinkronkan Akun (Opsional)</span>
                 </button>
+                <GoogleSignInButton
+                  loading={googleAuthLoading}
+                  onClick={onSignInGoogle}
+                />
               </div>
             )}
           </section>

@@ -4,7 +4,6 @@ import {
   Code2,
   FolderKanban,
   Layers,
-  LogIn,
   LogOut,
   MessageSquare,
   PanelLeftClose,
@@ -519,7 +518,7 @@ export function GptSidebar({
           </div>
         </div>
 
-        {/* Compact Profile / Account Row */}
+        {/* Compact Profile / Workspace Row */}
         <div
           className="flex items-center gap-1.5 border-t p-2.5"
           style={{ borderColor: "var(--border-subtle)" }}
@@ -527,40 +526,28 @@ export function GptSidebar({
           <button
             type="button"
             onClick={() => {
-              if (!activeUserEmail) {
-                onOpenAuthModal();
-              } else {
-                onSelectTab("settings");
-              }
+              onSelectTab("settings");
               closeOnMobile();
             }}
             className="flex min-h-[42px] min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1.5 text-left transition-colors hover:opacity-80"
             style={{ borderRadius: "var(--radius-control)" }}
-            title={
-              activeUserEmail
-                ? "Buka Pengaturan Akun & Kredit"
-                : "Masuk atau Daftar Akun HELPER AI."
-            }
+            title="Buka Pengaturan & Kredit"
           >
             <span className="flex min-w-0 items-center gap-2.5">
               <span
                 className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold"
                 style={{
-                  background: activeUserEmail
-                    ? "var(--text-primary)"
-                    : "var(--accent-gradient)",
-                  color: activeUserEmail
-                    ? "var(--bg-canvas)"
-                    : "var(--accent-contrast)",
+                  background: "var(--text-primary)",
+                  color: "var(--bg-canvas)",
                   borderRadius: "999px",
                 }}
                 aria-hidden="true"
               >
-                {activeUserEmail ? avatarInitial : <LogIn className="h-3.5 w-3.5" />}
+                {activeUserEmail ? avatarInitial : "H"}
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-xs font-semibold">
-                  {displayName}
+                  {activeUserEmail ? displayName : "Mode Lokal"}
                 </span>
                 <span
                   className="block truncate font-mono text-[11px] tabular-nums"
@@ -576,29 +563,31 @@ export function GptSidebar({
                     ? " · Workspace"
                     : isCloudSynced
                       ? " · Cloud"
-                      : " · Tamu"}
+                      : " · Lokal"}
                 </span>
               </span>
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              onSignOut();
-              closeOnMobile();
-            }}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center border hover:opacity-80"
-            style={{
-              borderColor: "var(--border-subtle)",
-              borderRadius: "var(--radius-control)",
-              color: "var(--text-secondary)",
-            }}
-            title={activeUserEmail ? "Keluar Akun" : "Kembali ke Layar Masuk"}
-            aria-label={activeUserEmail ? "Keluar Akun" : "Kembali ke Layar Masuk"}
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          {activeUserEmail ? (
+            <button
+              type="button"
+              onClick={() => {
+                onSignOut();
+                closeOnMobile();
+              }}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center border hover:opacity-80"
+              style={{
+                borderColor: "var(--border-subtle)",
+                borderRadius: "var(--radius-control)",
+                color: "var(--text-secondary)",
+              }}
+              title="Keluar Akun"
+              aria-label="Keluar Akun"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
       </aside>
     </>
